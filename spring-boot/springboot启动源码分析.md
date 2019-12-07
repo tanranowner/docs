@@ -1,3 +1,9 @@
+[toc]
+
+---
+
+
+
 # 1. 启动源码分析
 
 ## 1.1 入口方法
@@ -131,7 +137,7 @@ public @interface SpringBootApplication{
 }
 ```
 
-其中**@	是用来开始自动配置的注解。
+其中**@EnableAutoConfiguration**是用来开始自动配置的注解。
 
 ```java
 @AutoConfigurationPackage
@@ -771,4 +777,455 @@ static {
     SUPPORTED_TYPES = Collections.unmodifiableSet(types);
 }
 ```
+
+# 6. Web开发
+
+## 1. 自动配置
+
+在spring.factories配置中，springboot已经添加了servlet的自动配置。
+
+```properties
+# Auto Configure
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+org.springframework.boot.autoconfigure.web.servlet.DispatcherServletAutoConfiguration
+```
+
+根据配置，springboot在**@EnableAutoConfiguration**注解中，会自动加载该配置类**DispatcherServletAutoConfiguration**，并初始化springmvc相关的配置。
+
+```java
+// 在自动配置完毕Servlet容器之后
+@AutoConfigureAfter(ServletWebServerFactoryAutoConfiguration.class)
+public class DispatcherServletAutoConfiguration {
+	/*
+	 * The bean name for a DispatcherServlet that will be mapped to the root URL "/"
+	 */
+	public static final String DEFAULT_DISPATCHER_SERVLET_BEAN_NAME = "dispatcherServlet";
+
+	/*
+	 * The bean name for a ServletRegistrationBean for the DispatcherServlet "/"
+	 */
+	public static final String DEFAULT_DISPATCHER_SERVLET_REGISTRATION_BEAN_NAME = "dispatcherServletRegistration";
+
+	@Configuration
+	@Conditional(DefaultDispatcherServletCondition.class)
+	@ConditionalOnClass(ServletRegistration.class)
+    // 导入spring.http和spring.mvc的相关配置
+	@EnableConfigurationProperties({ HttpProperties.class, WebMvcProperties.class })
+	protected static class DispatcherServletConfiguration {
+		private final HttpProperties httpProperties;
+		private final WebMvcProperties webMvcProperties;
+		// 只有一个构造函数的情况下，spring会自动装配注入
+		public DispatcherServletConfiguration(HttpProperties httpProperties, WebMvcProperties webMvcProperties) {
+			this.httpProperties = httpProperties;
+			this.webMvcProperties = webMvcProperties;
+		}
+		// 加入DispatcherServlet到IOC容器（配置是否支持trace和options请求）
+		@Bean(name = DEFAULT_DISPATCHER_SERVLET_BEAN_NAME)
+		public DispatcherServlet dispatcherServlet() {
+			DispatcherServlet dispatcherServlet = new DispatcherServlet();
+dispatcherServlet.setDispatchOptionsRequest(this.webMvcProperties.isDispatchOptionsRequest());	dispatcherServlet.setDispatchTraceRequest(this.webMvcProperties.isDispatchTraceRequest());
+			dispatcherServlet	.setThrowExceptionIfNoHandlerFound(this.webMvcProperties.isThrowExceptionIfNoHandlerFound());			dispatcherServlet.setEnableLoggingRequestDetails(this.httpProperties.isLogRequestDetails());
+			return dispatcherServlet;
+		}
+		// 加入文件处理的MultiPartResolver到IOC容器
+		@Bean
+		@ConditionalOnBean(MultipartResolver.class)
+		@ConditionalOnMissingBean(name = DispatcherServlet.MULTIPART_RESOLVER_BEAN_NAME)
+		public MultipartResolver multipartResolver(MultipartResolver resolver) {
+			// Detect if the user has created a MultipartResolver but named it incorrectly
+			return resolver;
+		}
+
+	}
+
+	@Configuration
+	@Conditional(DispatcherServletRegistrationCondition.class)
+	@ConditionalOnClass(ServletRegistration.class)
+	@EnableConfigurationProperties(WebMvcProperties.class)
+	@Import(DispatcherServletConfiguration.class)
+	protected static class DispatcherServletRegistrationConfiguration {
+		private final WebMvcProperties webMvcProperties;
+		private final MultipartConfigElement multipartConfig;
+		public DispatcherServletRegistrationConfiguration(WebMvcProperties webMvcProperties,
+				ObjectProvider<MultipartConfigElement> multipartConfigProvider) {
+			this.webMvcProperties = webMvcProperties;
+			this.multipartConfig = multipartConfigProvider.getIfAvailable();
+		}
+		// 构造DispatcherServlet的注册Bean
+		@Bean(name = DEFAULT_DISPATCHER_SERVLET_REGISTRATION_BEAN_NAME)
+		@ConditionalOnBean(value = DispatcherServlet.class, name = DEFAULT_DISPATCHER_SERVLET_BEAN_NAME)
+		public DispatcherServletRegistrationBean dispatcherServletRegistration(DispatcherServlet dispatcherServlet) {
+			DispatcherServletRegistrationBean registration = new DispatcherServletRegistrationBean(dispatcherServlet,
+					this.webMvcProperties.getServlet().getPath());
+			registration.setName(DEFAULT_DISPATCHER_SERVLET_BEAN_NAME);
+			registration.setLoadOnStartup(this.webMvcProperties.getServlet().getLoadOnStartup());
+			if (this.multipartConfig != null) {
+				registration.setMultipartConfig(this.multipartConfig);
+			}
+			return registration;
+		}
+
+	}
+}
+```
+
+## 2. 静态资源
+
+springmvc的自动配置是在spring.factories中。
+
+```properties
+# Auto Configure
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration
+```
+
+
+
+```java
+@Configuration
+public class WebMvcAutoConfiguration {
+	public static final String DEFAULT_PREFIX = "";
+	public static final String DEFAULT_SUFFIX = "";
+	private static final String[] SERVLET_LOCATIONS = {"/"};
+	// 如果配置中支持hiddenmethod（支持除过GET,POST之外的Method），如果支持或者没有配置，则加入到IOC
+	@Bean
+	@ConditionalOnMissingBean(HiddenHttpMethodFilter.class)
+	@ConditionalOnProperty(prefix = "spring.mvc.hiddenmethod.filter", name = "enabled", matchIfMissing = true)
+	public OrderedHiddenHttpMethodFilter hiddenHttpMethodFilter() {
+		return new OrderedHiddenHttpMethodFilter();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(FormContentFilter.class)
+	@ConditionalOnProperty(prefix = "spring.mvc.formcontent.filter", name = "enabled", matchIfMissing = true)
+	public OrderedFormContentFilter formContentFilter() {
+		return new OrderedFormContentFilter();
+	}
+
+	static String[] getResourceLocations(String[] staticLocations) {
+		String[] locations = new String[staticLocations.length + SERVLET_LOCATIONS.length];
+		System.arraycopy(staticLocations, 0, locations, 0, staticLocations.length);
+		System.arraycopy(SERVLET_LOCATIONS, 0, locations, staticLocations.length, SERVLET_LOCATIONS.length);
+		return locations;
+	}
+	// 导入资源属性配置文件
+	@Configuration
+	@Import(EnableWebMvcConfiguration.class)
+	@EnableConfigurationProperties({WebMvcProperties.class, ResourceProperties.class})
+	@Order(0)
+	public static class WebMvcAutoConfigurationAdapter implements WebMvcConfigurer {
+		private static final Log logger = LogFactory.getLog(WebMvcConfigurer.class);
+		private final ResourceProperties resourceProperties;
+		private final WebMvcProperties mvcProperties;
+		private final ListableBeanFactory beanFactory;
+		private final ObjectProvider<HttpMessageConverters> messageConvertersProvider;
+		final ResourceHandlerRegistrationCustomizer resourceHandlerRegistrationCustomizer;
+
+		public WebMvcAutoConfigurationAdapter(ResourceProperties resourceProperties, WebMvcProperties mvcProperties, ListableBeanFactory beanFactory, ObjectProvider<HttpMessageConverters> messageConvertersProvider,
+											  ObjectProvider<ResourceHandlerRegistrationCustomizer> resourceHandlerRegistrationCustomizerProvider) {
+			this.resourceProperties = resourceProperties;
+			this.mvcProperties = mvcProperties;
+			this.beanFactory = beanFactory;
+			this.messageConvertersProvider = messageConvertersProvider;
+			this.resourceHandlerRegistrationCustomizer = resourceHandlerRegistrationCustomizerProvider.getIfAvailable();
+		}
+		
+		@Override
+		public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+			this.messageConvertersProvider
+					.ifAvailable((customConverters) -> converters.addAll(customConverters.getConverters()));
+		}
+
+		@Override
+		public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+			if (this.beanFactory.containsBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME)) {
+				Object taskExecutor = this.beanFactory
+						.getBean(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME);
+				if (taskExecutor instanceof AsyncTaskExecutor) {
+					configurer.setTaskExecutor(((AsyncTaskExecutor) taskExecutor));
+				}
+			}
+			Duration timeout = this.mvcProperties.getAsync().getRequestTimeout();
+			if (timeout != null) {
+				configurer.setDefaultTimeout(timeout.toMillis());
+			}
+		}
+
+		@Override
+		public void configurePathMatch(PathMatchConfigurer configurer) {
+configurer.setUseSuffixPatternMatch(this.mvcProperties.getPathmatch().isUseSuffixPattern());
+			configurer.setUseRegisteredSuffixPatternMatch(
+			this.mvcProperties.getPathmatch().isUseRegisteredSuffixPattern());
+		}
+
+		@Override
+		public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
+			WebMvcProperties.Contentnegotiation contentnegotiation = this.mvcProperties.getContentnegotiation();
+			configurer.favorPathExtension(contentnegotiation.isFavorPathExtension());
+			configurer.favorParameter(contentnegotiation.isFavorParameter());
+			if (contentnegotiation.getParameterName() != null) {
+				configurer.parameterName(contentnegotiation.getParameterName());
+			}
+			Map<String, MediaType> mediaTypes = this.mvcProperties.getContentnegotiation().getMediaTypes();
+			mediaTypes.forEach(configurer::mediaType);
+		}
+		// 加入视图解析器
+		@Bean
+		@ConditionalOnMissingBean
+		public InternalResourceViewResolver defaultViewResolver() {
+			InternalResourceViewResolver resolver = new InternalResourceViewResolver();
+			resolver.setPrefix(this.mvcProperties.getView().getPrefix());
+			resolver.setSuffix(this.mvcProperties.getView().getSuffix());
+			return resolver;
+		}
+
+		@Bean
+		@ConditionalOnBean(View.class)
+		@ConditionalOnMissingBean
+		public BeanNameViewResolver beanNameViewResolver() {
+			BeanNameViewResolver resolver = new BeanNameViewResolver();
+			resolver.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
+			return resolver;
+		}
+
+		@Bean
+		@ConditionalOnBean(ViewResolver.class)
+		@ConditionalOnMissingBean(name = "viewResolver", value = ContentNegotiatingViewResolver.class)
+		public ContentNegotiatingViewResolver viewResolver(BeanFactory beanFactory) {
+			ContentNegotiatingViewResolver resolver = new ContentNegotiatingViewResolver();
+			resolver.setContentNegotiationManager(beanFactory.getBean(ContentNegotiationManager.class));
+			// ContentNegotiatingViewResolver uses all the other view resolvers to locate
+			// a view so it should have a high precedence
+			resolver.setOrder(Ordered.HIGHEST_PRECEDENCE);
+			return resolver;
+		}
+
+		@Bean
+		@ConditionalOnMissingBean
+		@ConditionalOnProperty(prefix = "spring.mvc", name = "locale")
+		public LocaleResolver localeResolver() {
+			if (this.mvcProperties.getLocaleResolver() == WebMvcProperties.LocaleResolver.FIXED) {
+				return new FixedLocaleResolver(this.mvcProperties.getLocale());
+			}
+			AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
+			localeResolver.setDefaultLocale(this.mvcProperties.getLocale());
+			return localeResolver;
+		}
+
+		@Override
+		public MessageCodesResolver getMessageCodesResolver() {
+			if (this.mvcProperties.getMessageCodesResolverFormat() != null) {
+				DefaultMessageCodesResolver resolver = new DefaultMessageCodesResolver();
+resolver.setMessageCodeFormatter(this.mvcProperties.getMessageCodesResolverFormat());
+				return resolver;
+			}
+			return null;
+		}
+
+		@Override
+		public void addFormatters(FormatterRegistry registry) {
+			for (Converter<?, ?> converter : getBeansOfType(Converter.class)) {
+				registry.addConverter(converter);
+			}
+			for (GenericConverter converter : getBeansOfType(GenericConverter.class)) {
+				registry.addConverter(converter);
+			}
+			for (Formatter<?> formatter : getBeansOfType(Formatter.class)) {
+				registry.addFormatter(formatter);
+			}
+		}
+
+		private <T> Collection<T> getBeansOfType(Class<T> type) {
+			return this.beanFactory.getBeansOfType(type).values();
+		}
+		// 添加资源映射
+		@Override
+		public void addResourceHandlers(ResourceHandlerRegistry registry) {
+			if (!this.resourceProperties.isAddMappings()) {
+				logger.debug("Default resource handling disabled");
+				return;
+			}
+            // 设置静态资源的缓存时间
+			Duration cachePeriod = this.resourceProperties.getCache().getPeriod();
+			CacheControl cacheControl = this.resourceProperties.getCache().getCachecontrol().toHttpCacheControl();
+			if (!registry.hasMappingForPattern("/webjars/**")) {
+				customizeResourceHandlerRegistration(registry.addResourceHandler("/webjars/**")
+						.addResourceLocations("classpath:/META-INF/resources/webjars/")
+						.setCachePeriod(getSeconds(cachePeriod)).setCacheControl(cacheControl));
+			}
+			String staticPathPattern = this.mvcProperties.getStaticPathPattern();
+			if (!registry.hasMappingForPattern(staticPathPattern)) {
+				customizeResourceHandlerRegistration(registry.addResourceHandler(staticPathPattern)
+						.addResourceLocations(getResourceLocations(this.resourceProperties.getStaticLocations()))
+						.setCachePeriod(getSeconds(cachePeriod)).setCacheControl(cacheControl));
+			}
+		}
+
+	}
+}
+```
+
+资源的属性配置，设置资源有关的配置（静态资源，缓存时间等）。
+
+```java
+@ConfigurationProperties(prefix = "spring.resources", ignoreUnknownFields = false)
+public class ResourceProperties {
+
+	private static final String[] CLASSPATH_RESOURCE_LOCATIONS = {"classpath:/META-INF/resources/",
+			"classpath:/resources/", "classpath:/static/", "classpath:/public/"};
+	/**
+	 * Locations of static resources. Defaults to classpath:[/META-INF/resources/,
+	 * /resources/, /static/, /public/].
+	 */
+	private String[] staticLocations = CLASSPATH_RESOURCE_LOCATIONS;
+}
+```
+
+通过以上代码可以看到静态资源的检索路径。
+
+```properties
+"/**" 静态资源映射到下面路径 # 来自spring.mvc.staticPathPattern
+"classpath:/META-INF/resources/",
+"classpath:/resources/", 
+"classpath:/static/", 
+"classpath:/public/"
+
+"/webjars/**" 静态资源映射到下面路径
+"classpath:/META-INF/resources/webjars/"
+```
+
+添加webjars依赖，会以jar包形式将静态资源打包提供。
+
+```xml
+<!--添加webjars的依赖-->
+<dependency>
+    <groupId>org.webjars.bower</groupId>
+    <artifactId>jquery</artifactId>
+    <version>3.3.1</version>
+</dependency>
+```
+
+- 启动后测试webjars静态资源映射成功。
+
+  ![image-20191207191433181](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207191433181.png)
+
+![image-20191207184228754](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207184228754.png)
+
+- 测试其它静态资源映射成功。
+
+  ![image-20191207190629918](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207190629918.png)
+
+  ![image-20191207190842950](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207190842950.png)
+
+  
+
+## 3. Thymeleaf模板
+
+### 1. 引入依赖
+
+thymeleaf模板引擎是springboot推荐的，首先，需要加入pom依赖。
+
+```xml
+<!--默认不需要-->
+<properties>
+    <thymeleaf.version>3.0.11.RELEASE</thymeleaf.version>
+    <!--布局支持程序，如果thymeleaf为3，则layout为2以上-->
+    <thymeleaf-layout-dialect.version>2.3.0</thymeleaf-layout-dialect.version>
+</properties>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-thymeleaf</artifactId>
+</dependency>
+```
+
+### 2. 自动配置
+
+```properties
+# Auto Configure
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+org.springframework.boot.autoconfigure.thymeleaf.ThymeleafAutoConfiguration
+```
+
+```java
+// org.springframework.boot.autoconfigure.thymeleaf.ThymeleafAutoConfiguration
+@Configuration
+// 加载配置
+@EnableConfigurationProperties(ThymeleafProperties.class)
+@ConditionalOnClass({TemplateMode.class, SpringTemplateEngine.class})
+@AutoConfigureAfter({WebMvcAutoConfiguration.class, WebFluxAutoConfiguration.class})
+public class ThymeleafAutoConfiguration {
+    // thymeleaf的模板解析器
+    @Bean
+    public SpringResourceTemplateResolver defaultTemplateResolver() {
+        SpringResourceTemplateResolver resolver = new SpringResourceTemplateResolver();
+        resolver.setApplicationContext(this.applicationContext);
+        resolver.setPrefix(this.properties.getPrefix());
+        resolver.setSuffix(this.properties.getSuffix());
+        resolver.setTemplateMode(this.properties.getMode());
+        if (this.properties.getEncoding() != null) {
+            resolver.setCharacterEncoding(this.properties.getEncoding().name());
+        }
+        resolver.setCacheable(this.properties.isCache());
+        Integer order = this.properties.getTemplateResolverOrder();
+        if (order != null) {
+            resolver.setOrder(order);
+        }
+        resolver.setCheckExistence(this.properties.isCheckTemplate());
+        return resolver;
+    }
+}
+// thymeleaf配置属性
+@ConfigurationProperties(prefix = "spring.thymeleaf")
+public class ThymeleafProperties {
+	private static final Charset DEFAULT_ENCODING = StandardCharsets.UTF_8;
+	public static final String DEFAULT_PREFIX = "classpath:/templates/";
+	public static final String DEFAULT_SUFFIX = ".html";
+}
+```
+
+由代码可以看出，thymeleaf模板的默认目录是在classpath:/templates/，后缀为.html。
+
+### 3. 编写页面
+
+现在可以编写第一个html页面了（默认已经开启thymeleaf引擎，并且模板路径在templates目录）。
+
+```html
+<!--templates/success.html-->
+<!DOCTYPE html>
+<!--必须导入名称空间-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<h1>成功进入thymeleaf页面</h1>
+<div th:text="${message}"></div>
+</body>
+</html>
+```
+
+编写controller代码。
+
+```java
+@GetMapping("/success")
+public ModelAndView success(ModelMap modelMap)
+{
+    ModelAndView modelAndView = new ModelAndView();
+    modelMap.addAttribute("message", "hello world thymeleaf");
+    modelAndView.addObject(modelMap);
+    modelAndView.setViewName("success");
+
+    return modelAndView;
+}
+```
+
+通过浏览器访问来验证。
+
+![image-20191207213803353](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207213803353.png)
+
+
+
+
 
