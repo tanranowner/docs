@@ -1225,7 +1225,78 @@ public ModelAndView success(ModelMap modelMap)
 
 ![image-20191207213803353](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207213803353.png)
 
+### 4. 缓存
 
+在开发调试阶段需要关闭缓存。
+
+- thymeleaf服务端缓存；
+
+```yaml
+spring:
+  thymeleaf:
+    cache: false
+```
+
+- 开发工具的缓存；
+  
+  1. 开启自动编译；
+  
+     ![image-20191208171509189](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191208171509189.png)
+  
+  2. registry注册表
+  
+     使用ctrl+alt+shift+/调出
+  
+     ![image-20191208183650864](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191208183650864.png)
+
+- 浏览器缓存
+
+  在调试模式下，关闭cache。F12在Network的Disable cache选项上打勾禁用缓存。
+
+  ![img](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/20180803111823740.png)
+
+禁用缓存之后，在修改静态资源之后，就可以用ctrl+F9重新编译实时生效。
+
+### 5. 登录拦截
+
+在用户打开页面时，需要判断用户是否登录，如果已经登录则正常处理，否则重定向到登录页面。
+
+拦截器实现。
+
+```java
+// 编写登录拦截器
+public class SigninHandlerInterceptor implements HandlerInterceptor {
+	@Override
+	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+		HttpSession session = request.getSession(false);
+		if(null != session && !ObjectUtils.isEmpty(session.getAttribute("username"))
+				&& !ObjectUtils.isEmpty(session.getAttribute("password")))
+		{
+			return true;// 登录验证通过
+		}
+		else
+		{
+			request.setAttribute("message", "请输入密码");
+			request.getRequestDispatcher("/signin").forward(request, response);// 验证是否，则转发到登录页面
+			return false;
+		}
+	}
+}
+// 实现WebMvcConfigurer接口
+@Configuration
+public class AppConfig implements WebMvcConfigurer {
+	// 拦截器需要排除静态资源和登录页面
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		registry.addInterceptor(new SigninHandlerInterceptor()).addPathPatterns("/**")
+				.excludePathPatterns(Arrays.asList("/signin", "/static/**", "/webjars/**", "/assets/**", "/docs/**"));
+	}
+}
+```
+
+如果直接登录非登录页面（http://127.0.0.1:8080/users），则会自动跳转到登录页面。
+
+![image-20191208211716248](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191208211716248.png)
 
 
 
