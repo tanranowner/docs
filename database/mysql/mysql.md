@@ -345,8 +345,15 @@ mysql查询优化会选择一个成本最低的执行方案。包含CPU和IO成�
 
 ```sql
 show table status like 'demo' --该表的数据默认不是实时更新，默认变动记录数超过10%才更新。也可以手动更新
+```
+
+![image-20191214094855949](mysql.assets/image-20191214094855949.png)
+
+```sql
 analyze table demo;
 ```
+
+
 
 1. 全表扫描（table_scan）
 
@@ -367,7 +374,7 @@ select * from demo where id = 3 or a = 2;
 
 主键索引成本=范围区间数IO成本+范围记录数CPU成本。
 
-范围区间数IO成本：一个范围区间成本为1，=，<，>，in等。如，where id>1 and id<3成本为1。
+范围区间数IO成本：一个范围区间成本为1，=，<，>，in等。如，where id>1 and id<3成本为1。如果in中的条件范围小于200则精确评估，否则，通过表的统计数据中的行数（rows）和唯一值个数（show index from tableName中的字段cardinality），预估唯一值对应的平均数据行数再乘以in中的取值多少。
 
 范围记录数CPU成本（range_scan_alternatives）：该成本=范围记录数x0.2。
 
@@ -406,7 +413,9 @@ select * from demo where id = 3 or a = 2;
   select * from t2 where t2.id=5;
   ```
 
-### 1. 基于块的嵌套连接算法
+### 1. 原理
+
+#### 1. 基于块的嵌套连接算法
 
 基于上面的原理，mysql由join_buffer_size的概念。可以每次从驱动表中获取256KB（16页）的数据，再从驱动表中匹配。这样就是基于块的嵌套查询，减少IO降低成本。如下所示。
 
@@ -414,9 +423,38 @@ select * from demo where id = 3 or a = 2;
 select * from t2 where t2.id in (1,2,3,4,5);
 ```
 
-> 默认join_buffer_size的大小为256KB，最小可以设置为128B。
+#### 2. JOIN_BUFFER
 
-### 2. 外连接消除
+join_buffer_size就是没有驱动表加载的最大大小。
+
+#### 3. 小表驱动大表
+
+根据连接的原理可以看出，如果小表为驱动表有n条记录，大表为被驱动表有m条记录（m>>n）。那么驱动表的每条记录都需要在被驱动表中匹配查询一次，那就是n次，反之，则为m次。在内连接查询中，查询优化器会自动选择最优的驱动方式。
+
+```java
+foreach row n in driveTableRows    // 遍历满足条件的驱动表每条记录
+	foreach row n in drivemTableRows // 遍历被驱动表中满足驱动表中的每条记录（on 条件）
+		if rown.id == rowm.id 
+			result.add rowm
+```
+
+### 2. 优化
+
+#### 1.增大JOIN_BUFFER
+
+最好能够让驱动表一次可以加载完毕。
+
+>默认join_buffer_size的大小为256KB，最小可以设置为128B。
+
+```sql
+show variables like 'join_buffer_size';
+```
+
+![image-20191214094403423](mysql.assets/image-20191214094403423.png)
+
+#### 2. 外连接消除
+
+转换为内连接，可以让查询优化器自主选择最优的驱动表。
 
 由于外连接的驱动表和被驱动表是固定的，而内连接的表的驱动表和被驱动表可以根据成本调整。所以外连接无法优化表的连接顺序。
 
@@ -432,11 +470,252 @@ select * from t2 where t2.id in (1,2,3,4,5);
 
 如果该sql可以从**业务**上优化为select * from t1 left join t2 where t1.id = t2.id where t2.b is not null，则会减少不匹配的记录，并且优化器可以消除外连接，优化改为内连接方式（可以从执行计划看出）。
 
+```sql
+explain select * from demo t1 left join demo1 t2 on t1.id = t2.id;
+```
+
+![image-20191214095438985](mysql.assets/image-20191214095438985.png)
+
+```sql
+explain select * from demo t1 left join demo1 t2 on t1.id = t2.id where t2.a is not null;
+```
+
+![image-20191214095536522](mysql.assets/image-20191214095536522.png)
+
 ## 4. 子查询
 
+### 1. 按照结果集区分子查询
+
+子查询主要有两种写法。
+
+```sql
+// 1. 子查询在where过滤条件中
+select * from demo where id in (select id from demo1);
+// 2. 子查询在from派生表中
+select * from (select * from demo1) as t;
+```
+
+#### 1. 过滤条件子查询
+
+##### 1. 非相关子查询
+
+非相关子查询，就是在子查询内部没有使用或者依赖外部的关联条件。
+
+- 标量子查询
+
+```sql
+// 子查询结果集是个常量（标量）
+select * from demo where id = (select max(id) from demo);
+```
+
+- 行子查询
+
+```sql
+// 子查询是一行数据
+select * from demo where (a,b) = (select a,b from demo limit 1);
+```
+
+对于非相关标量子查询和行子查询，先执行子查询，再把子查询结果带入到where条件中查询。
+
+- 列子查询
+
+```sql
+// 子查询结果为一列数据
+select * from demo where id in (select id from demo);
+```
+
+- 表子查询
+
+```sql
+// 子查询结果是个表
+select * from demo where (a,b) in (select a,b from demo);
+```
+
+##### 2. 相关子查询
+
+相关子查询，就是子查询内部使用或依赖外部查询的关联条件。
+
+如下为相关列子查询。
+
+```sql
+select * from demo t1 where id in (select id from demo t2 where t2.id = t1.id);
+```
+
+##### 3. 不相关子查询优化
+
+相关标量和行子查询的执行步骤：
+
+1. 从外层查询中获取一条记录；
+2. 把上面步骤中的记录传入到内层子查询，然后执行子查询；
+3. 最后，将上面子查询的结果和where条件匹配，如果匹配成功，则加入到结果集；
+4. 再执行步骤1，以此类推。
+
+对于in子查询（列和表子查询）的执行，有可能存在问题。如，子查询结果太大，内存不足；或者外层的in语句中条件过多，导致无法使用索引，最终走向了全表扫描，并且in语句的匹配过程过慢。这样子必然要对其进行优化。
+
+对于不相关子查询（列和表子查询）的执行优化步骤：
+
+1. 现将子查询结果放到临时表中（如果不大于tmp_table_size或者max_heap_table_size，则为内存表，使用memory引擎，hash索引；否则为物化为磁盘表，而且索引为全字段B+树索引）；
+2. 把临时表中的数据进行全字段去重（可选步骤，如果查询字段为主键或者unique字段，则不需要）；
+3. 外层使用join查询；
+
+可以查看执行计划和join基本一致。
+
+```sql
+explain select * from demo where (a,b) in (select a,b from demo1);
+```
+
+从下图可以看出是demo1表驱动demo表。
+
+![image-20191214110804698](mysql.assets/image-20191214110804698.png)
+
+- tablePullOut（子查询的表上来）
+
+如果in子查询关联条件为主键或者唯一索引，则优化器会直接优化为join。
+
+```sql
+explain select * from demo where id in (select id from demo1);
+```
+
+![image-20191214111645373](mysql.assets/image-20191214111645373.png)
+
+优化器优化后，等价于下面sql。
+
+```sql
+explain select * from demo t1 join demo1 t2 on t1.id = t2.id;
+```
+
+![image-20191214111802428](mysql.assets/image-20191214111802428.png)
+
+- DuplicateWeedout execution strategy（重复值消除）
+
+如果in子查询关联条件不是唯一字段，如，select * from demo where a in (select a from demo1)，且a不是唯一性字段。我们可以建立临时表create table temp(a primary key)；将子查询的表插入到该临时表中去，如果插入失败，则做为重复记录丢弃，最终临时表则为排重后的子查询的数据。这种使用临时表消除**semi-join**（半连接）结果集中重复值的方式就是DuplicateWeedout 。
+
+- firstMatch（首次匹配）
+
+就是先取一条外层查询中的记录，然后在子查询中查询符合条件的记录，如果找到一条就返回，避免更多的查询；然后从外层在获取一条查询记录继续前面的步骤。
+
+- looseScan（松散索引扫描）
+
+利用子查询中的索引（树），不返回重复记录的结果集。
+
+##### 4. 相关子查询优化
+
+- 使用exists
+
+如下sql的优化。
+
+```sql
+select * from demo t1 where id in (select id from demo t2 where t2.id = t1.id);
+// 可以优化为
+select * from demo t1 where exists in (select 1 from demo t2 where t2.id = t1.id);
+```
 
 
 
+#### 2. 临时表子查询
+
+```sql
+select * from demo t1, (select * from demo1) as t2 where t1.id=t2.id;
+```
+
+执行方式：
+
+- 派生表物化
+
+将派生表先物化为临时表（如果不大于tmp_table_size或者max_heap_table_size，则为内存表，使用memory引擎，hash索引；否则为物化为磁盘表，而且索引为全字段B+树索引），再和其它表join。
+
+```sql
+create table t2 as select * from demo1;
+select * from demo t1 join t2 on t1.id=t2.id;
+```
+
+- 取消派生表
+
+对于没有意义的派生表直接去除。
+
+```sql
+select * from (select * from demo1) as t1;
+// 转化为下面的sql
+select * from demo1;
+
+select * from demo t1, (select * from demo1 where a=1) as t2 where t1.id=t2.id;
+// 转化为下面的sql
+select * from demo t1 join demo1 t2 on t1.id=t2.id where t1.a=1;
+```
+
+但是如果派生表中包含有聚合函数，分组函数，union，limit的语句则不能直接优化。
+
+## 5. explain原理
+
+explain执行之后的结果集字段：
+
+| 列名              | 描述                                                         |
+| ----------------- | ------------------------------------------------------------ |
+| id                | 在一个大的查询语句中，每个select关键字，对应一个唯一的id     |
+| select_type       | select关键字对应的查询类型。最常见的值包括SIMPLE、PRIMARY、DERIVED 和UNION。其他可能的值还有UNION RESULT、DEPENDENT SUBQUERY、DEPENDENT UNION、UNCACHEABLE UNION 以及UNCACHEABLE QUERY。 |
+| table             | 表名                                                         |
+| partitions        | 匹配到的分区信息                                             |
+| **type**          | 针对单表的访问方式。从最佳到最差排序，NULL（直接得到结果）>system（表只有一行，innodb没有）>const（匹配到唯一性的一行，唯一索引等值匹配）>eq_ref（主键或唯一性索引查找）>ref（非唯一行索引查找）>range（范围查找）>index（索引数扫描）>All（全表扫描） |
+| **possible_keys** | 可能用到的索引                                               |
+| **key**           | 实际用到的索引                                               |
+| **key_len**       | 实际用到的索引长度（使用到索引的所有字段的长度，如索引idx_abc，如果where a=1 and b=1，则实际使用到的索引的长度为列a+b的长度之和）。可以为NULL的列，在定义列长度的基础上加1字节，varchar类型还要加上2字节（存储变长字符串的长度）。 |
+| ref               | 当使用索引列等值查询时，与索引列进行等值匹配的对象信息（含常量） |
+| rows              | 预估的记录条数或者索引扫描的行数                             |
+| filtered          | 过滤之后的符合条件的记录条数的百分比                         |
+| **extra**         | 一些额外信息                                                 |
+|                   |                                                              |
+
+由于执行计划是使用默认查询优化器的结果，如果需要参考其它执行路径的执行情况，可以手工指定设置查询优化器。
+
+```sql
+// 手工指定索引
+explain select * from demo1 <use|force> index(idx_demo1_abc) where c=1;
+
+// 手工指定驱动表
+explain select * from demo1 t1 straight join demo2 t2 on t1.id=t2.id;
+```
 
 
+
+## 6. 通用优化方式
+
+- in语句中的值不宜超过200个，如果不超过200个会使用精确预估成本，如果超过200个会通过统计表中的平均唯一字段行数预估（总记录行数/列的唯一值个数=每个唯一值的平均对应行数），能用between就不要用in，因为between只是一个范围查询；
+- select的结果集尽量不要使用*，防止过多的成本，明确字段会增加使用覆盖索引（using index）的可能性，降低回表成本；
+- 只需要一行数据时，使用limit；
+- 排序或者分组时，使用索引字段，因为索引字段是排好序的；
+- or可以使用union或者union all替换，可以使用更多的索引；
+- in可以使用exists，检查是否使用到索引；
+- 合理的分页，减少数据（分页页码越大，成本越高，也就越慢），或者考虑配合主键过滤；
+
+如，
+
+```sql
+select * from demo1 limit 1000,100;
+// 可以优化为下面的sql
+select * from demo1 where id > 1000 limit 100;
+```
+
+- 不建议使用%前缀模糊匹配，因为使用不到索引；
+- 不要使用隐式的类型转化（字符串转换为数值型就是0，字符串索引字段如果和数值配置，不会用到索引，反之则可以）；
+
+```sql
+// 可以查看转化告警
+show warnings;
+```
+
+- 避免在where子句中使用字段表达式操作；
+- 对于联合索引遵循最左前缀原则；
+
+```sql
+// 如联合索引idx_abc
+select * from demo1 where b = 1;// 不走索引
+select * from demo1 where b = 1 and c = 1;// 不走索引
+select * from demo1 where a = 1 and b = 1 and c =1;// 不走索引
+//  这是因为联合索引的B+树的目录是以a字段开头，b次之，c最后，所以可以用a**匹配，但是不能用*bc匹配。
+```
+
+
+
+- 联合查询如果使用between，<，>等范围查询，会导致索引字段失效；
+- 优先使用内连接，少用外连接，连接时，使用小表驱动大表；
 
