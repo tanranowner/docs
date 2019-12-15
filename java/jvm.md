@@ -174,3 +174,273 @@ version 3333333333333333333333
 
 
 
+# 2. 内存结构
+
+![image-20191215181553963](jvm.assets/image-20191215181553963.png)
+
+# 3. 常见工具
+
+## 1. jps
+
+查看系统中，当前jvm进程列表。
+
+```bat
+usage: jps [-help]
+       jps [-q] [-mlvV] [<hostid>]
+
+Definitions:
+    <hostid>:      <hostname>[:<port>]
+    
+参数说明
+-q：只输出进程 ID
+-m：输出传入 main 方法的参数
+-l：输出完全的包名，应用主类名，jar的完全路径名
+-v：输出jvm参数
+-V：输出通过flag文件传递到JVM中的参数
+```
+
+![image-20191215165503511](jvm.assets/image-20191215165503511.png)
+
+## 2. jinfo
+
+查看正在运行的java程序的扩展参数。
+
+```bat
+Usage:
+    jinfo [option] <pid>
+        (to connect to running process)
+    jinfo [option] <executable <core>
+        (to connect to a core file)
+    jinfo [option] [server_id@]<remote server IP or hostname>
+        (to connect to remote debug server)
+
+where <option> is one of:
+    -flag <name>         to print the value of the named VM flag
+    -flag [+|-]<name>    to enable or disable the named VM flag
+    -flag <name>=<value> to set the named VM flag to the given value
+    -flags               to print VM flags
+    -sysprops            to print Java system properties
+    <no option>          to print both of the above
+    -h | -help           to print this help message
+
+```
+
+查看jvm参数。
+
+![image-20191215165857140](jvm.assets/image-20191215165857140.png)
+
+相当于System.getProperties()。
+
+```java
+public static void main(String[] args) {
+	System.out.println(System.getProperties());
+}
+```
+
+```txt
+{java.runtime.name=Java(TM) SE Runtime Environment, sun.boot.library.path=D:\Program Files\Java\jdk1.8.0_191\jre\bin, java.vm.version=25.191-b12, java.vm.vendor=Oracle Corporation, java.vendor.url=http://java.oracle.com/, path.separator=;, java.vm.name=Java HotSpot(TM) 64-Bit Server VM, file.encoding.pkg=sun.io, user.country=CN, user.script=, sun.java.launcher=SUN_STANDARD, sun.os.patch.level=, java.vm.specification.name=Java Virtual Machine Specification, user.dir=G:\repositories\spring-boot-2.1.x, java.runtime.version=1.8.0_191-b12, java.awt.graphicsenv=sun.awt.Win32GraphicsEnvironment, java.endorsed.dirs=D:\Program Files\Java\jdk1.8.0_191\jre\lib\endorsed, os.arch=amd64, java.io.tmpdir=C:\Users\Administrator\AppData\Local\Temp\, line.separator=
+, java.vm.specification.vendor=Oracle Corporation, user.variant=, os.name=Windows 10, sun.jnu.encoding=GBK, java.library.path=D:\Program Files\Java\jdk1.8.0_191\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;D:\Program Files\Java\jdk1.8.0_191\bin;D:\Program Files\TortoiseGit\bin;F:\gradle-4.9\bin;
+……
+```
+
+## 3. jstat
+
+可以查看堆内存的使用情况的统计。
+
+```bat
+invalid argument count
+Usage: jstat -help|-options
+       jstat -<option> [-t] [-h<lines>] <vmid> [<interval> [<count>]]
+
+Definitions:
+  <option>      An option reported by the -options option
+  <vmid>        Virtual Machine Identifier. A vmid takes the following form:
+                     <lvmid>[@<hostname>[:<port>]]
+                Where <lvmid> is the local vm identifier for the target
+                Java virtual machine, typically a process id; <hostname> is
+                the name of the host running the target Java virtual machine;
+                and <port> is the port number for the rmiregistry on the
+                target host. See the jvmstat documentation for a more complete
+                description of the Virtual Machine Identifier.
+  <lines>       Number of samples between header lines.
+  <interval>    Sampling interval. The following forms are allowed:
+                    <n>["ms"|"s"]
+                Where <n> is an integer and the suffix specifies the units as
+                milliseconds("ms") or seconds("s"). The default units are "ms".
+  <count>       Number of samples to take before terminating.
+  -J<flag>      Pass <flag> directly to the runtime system.
+```
+
+- 类加载情况
+
+loaded：加载类的数量；
+
+Bytes：加载类占用空间大小；
+
+unloaded：未加载类数量；
+
+Bytes：未加载类大小；
+
+Time：时间。
+
+![image-20191215174847932](jvm.assets/image-20191215174847932.png)
+
+- 垃圾回收统计
+
+S0C：S0空间大小；
+
+S1C：S1空间大小；
+
+S0U：S0区空间已用大小；
+
+S1U：S1区空间已用大小；
+
+EC：eden区空间大小；
+
+EU：eden区空间已用大小；
+
+OC：old区空间大小；
+
+OU：old区空间已用大小；
+
+MC：元空间的大小；
+
+MU：元空间已用大小；
+
+CCSC：压缩类的空间大小；
+
+CCSU：压缩类的空间已用大小；
+
+YGC：年轻代垃圾回收次数；
+
+YGCT：年轻代垃圾回收消耗时间；
+
+FGC：老年代垃圾回收次数；
+
+FGCT：老年代垃圾回收消耗时间；
+
+GCT：所有垃圾回收消耗的总时间。
+
+![image-20191215175001372](jvm.assets/image-20191215175001372.png)
+
+查看新生代的gc情况。
+
+![image-20191215180117684](jvm.assets/image-20191215180117684.png)
+
+## 4. jmap
+
+查看内存使用情况。
+
+- 堆对象统计
+
+```bash
+jmap -histo 10104 // 查看所有堆对象
+jmap -histo:live 10104 // 只看堆中没有回收的
+```
+
+num：序号；
+
+instances：实例数量；
+
+bytes：占用空间大小；
+
+class name：类名称。
+
+![image-20191215182129151](jvm.assets/image-20191215182129151.png)
+
+- 堆内存快照
+
+```bash
+jmap -dump:format=b,file=10104.hprof 10104
+```
+
+可以将该文件导入到MAT，或者JDK自带的VisualVM来分析。
+
+## 5. jstack
+
+用于生成jvm当前线程（栈）快照。
+
+```shell
+jstack 10104
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.191-b12 mixed mode):
+// prio为线程的优先级，tid为jvm中的线程id，nid为操作系统中的线程id，Thread.State为线程状态，如果blocked状态则为死锁。
+"DestroyJavaVM" #13 prio=5 os_prio=0 tid=0x0000000003287000 nid=0x1028 waiting on condition [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"JPS event loop" #10 prio=5 os_prio=0 tid=0x0000000017a72800 nid=0x2db4 runnable [0x000000001804f000]
+   java.lang.Thread.State: RUNNABLE
+        at sun.nio.ch.WindowsSelectorImpl$SubSelector.poll0(Native Method)
+        at sun.nio.ch.WindowsSelectorImpl$SubSelector.poll(WindowsSelectorImpl.java:296)
+        at sun.nio.ch.WindowsSelectorImpl$SubSelector.access$400(WindowsSelectorImpl.java:278)
+        at sun.nio.ch.WindowsSelectorImpl.doSelect(WindowsSelectorImpl.java:159)
+        at sun.nio.ch.SelectorImpl.lockAndDoSelect(SelectorImpl.java:86)
+        - locked <0x00000000f3913e48> (a io.netty.channel.nio.SelectedSelectionKeySet)
+        - locked <0x00000000f392f218> (a java.util.Collections$UnmodifiableSet)
+        - locked <0x00000000f3914e70> (a sun.nio.ch.WindowsSelectorImpl)
+        at sun.nio.ch.SelectorImpl.select(SelectorImpl.java:97)
+        at io.netty.channel.nio.SelectedSelectionKeySetSelector.select(SelectedSelectionKeySetSelector.java:62)
+        at io.netty.channel.nio.NioEventLoop.select(NioEventLoop.java:765)
+        at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:413)
+        at io.netty.util.concurrent.SingleThreadEventExecutor$5.run(SingleThreadEventExecutor.java:909)
+        at java.lang.Thread.run(Thread.java:748)
+
+"Service Thread" #9 daemon prio=9 os_prio=0 tid=0x0000000016b07000 nid=0x32e8 runnable [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+"GC task thread#0 (ParallelGC)" os_prio=0 tid=0x000000000329d800 nid=0x6dc runnable
+
+"GC task thread#1 (ParallelGC)" os_prio=0 tid=0x00000000032a0000 nid=0x2458 runnable
+
+"GC task thread#2 (ParallelGC)" os_prio=0 tid=0x00000000032a1800 nid=0x2f04 runnable
+
+"GC task thread#3 (ParallelGC)" os_prio=0 tid=0x00000000032a3800 nid=0x1014 runnable
+
+"GC task thread#4 (ParallelGC)" os_prio=0 tid=0x00000000032a5800 nid=0x1598 runnable
+
+"GC task thread#5 (ParallelGC)" os_prio=0 tid=0x00000000032a6800 nid=0x2dac runnable
+
+"VM Periodic Task Thread" os_prio=2 tid=0x0000000016b25000 nid=0x1b08 waiting on condition
+
+Found one JAVA-LEVEL deadlock
+……// 死锁的描述信息
+
+JNI global references: 314
+
+```
+
+# 4. GC算法和收集器
+
+默认jvm堆内存为系统内存的1/64,（如果系统8G内存，则jvm堆内存为125M，其中old区84M，young区41M（其中eden区32M，S0和S1各5M），新生代和老年代的比例为1:2，eden和S0，S1比例为6:1）。
+
+new出来的对象一般分配在eden区，如果是大对象（eden区比old小，放不下）则会分配到old区。
+
+
+
+## 1 判断对象可回收
+
+在堆里面几乎放置了所有对象，在堆垃圾回收之前首先需要判断哪些对象已经死亡（不在使用的对象）。
+
+### 1. 引用计数器
+
+有对该对象的引用在对象的引用计数器加1。该算法简答效率高，但是有内存泄漏的风险。这是早期的算法。
+
+### 2. 可达性分析
+
+通过GCRoot引用链分析。
+
+
+
+如果无用的对象不想被回收，则需要在finalize中再引用一次（如，连接池）。
+
+## 2. 垃圾回收算法
+
+### 1. 标记清除算法
+
+### 2. 复制算法
+
+### 3. 标记整理算法
+
+### 4. 分代收集算法
+
+
+
