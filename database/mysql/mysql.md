@@ -73,9 +73,9 @@ select * from demo where a >= 3;
 
 ![image-20191212200749034](mysql.assets/image-20191212200749034.png)
 
-## 2. 查询优化
+# 2. 查询优化
 
-### 1. 开启查询优化器跟踪
+## 1. 开启查询优化器跟踪
 
 由于查询优化器跟踪默认是关闭的，所以首先需要开启。
 
@@ -333,13 +333,13 @@ constant_propagation：常量传递。如，where a>b and b=1，优化后则为w
 
 trivial_condition_removal：删除无用的条件。如，where 1=1 and a=1，优化后则为where a=1。
 
-### 2. 基于成本
+## 2. 基于成本
 
 mysql查询优化会选择一个成本最低的执行方案。包含CPU和IO成本。
 
 >Innodb存储引擎规定读取一个页的成本默认为1.0，读取以及检测一条记录是否符合搜索条件的成本默认为0.2。优化步骤
 
-### 3. 优化步骤
+## 3. 优化步骤
 
 通过下面的sql可以查询出表的统计信息。
 
@@ -386,7 +386,7 @@ select * from demo where id = 3 or a = 2;
 
 最终的索引将有可能会使用成本最小的索引。最终的优化器也会比较索引成本和全表扫描成本，选择最小的执行路径。
 
-## 3. 连接
+# 3. 连接
 
 所有表连接都需要一个驱动表和一个被驱动表。对于内连接，选取那个驱动表都是一样的；对于外连接，驱动表和被驱动表都是固定的，左连接的驱动表是左边的表，右连接的驱动表是右边的表。
 
@@ -413,9 +413,9 @@ select * from demo where id = 3 or a = 2;
   select * from t2 where t2.id=5;
   ```
 
-### 1. 原理
+## 1. 原理
 
-#### 1. 基于块的嵌套连接算法
+### 1. 基于块的嵌套连接算法
 
 基于上面的原理，mysql由join_buffer_size的概念。可以每次从驱动表中获取256KB（16页）的数据，再从驱动表中匹配。这样就是基于块的嵌套查询，减少IO降低成本。如下所示。
 
@@ -423,11 +423,11 @@ select * from demo where id = 3 or a = 2;
 select * from t2 where t2.id in (1,2,3,4,5);
 ```
 
-#### 2. JOIN_BUFFER
+### 2. JOIN_BUFFER
 
 join_buffer_size就是没有驱动表加载的最大大小。
 
-#### 3. 小表驱动大表
+### 3. 小表驱动大表
 
 根据连接的原理可以看出，如果小表为驱动表有n条记录，大表为被驱动表有m条记录（m>>n）。那么驱动表的每条记录都需要在被驱动表中匹配查询一次，那就是n次，反之，则为m次。在内连接查询中，查询优化器会自动选择最优的驱动方式。
 
@@ -438,9 +438,9 @@ foreach row n in driveTableRows    // 遍历满足条件的驱动表每条记录
 			result.add rowm
 ```
 
-### 2. 优化
+## 2. 优化
 
-#### 1.增大JOIN_BUFFER
+### 1.增大JOIN_BUFFER
 
 最好能够让驱动表一次可以加载完毕。
 
@@ -452,7 +452,7 @@ show variables like 'join_buffer_size';
 
 ![image-20191214094403423](mysql.assets/image-20191214094403423.png)
 
-#### 2. 外连接消除
+### 2. 外连接消除
 
 转换为内连接，可以让查询优化器自主选择最优的驱动表。
 
@@ -482,9 +482,9 @@ explain select * from demo t1 left join demo1 t2 on t1.id = t2.id where t2.a is 
 
 ![image-20191214095536522](mysql.assets/image-20191214095536522.png)
 
-## 4. 子查询
+# 4. 子查询
 
-### 1. 按照结果集区分子查询
+## 1. 按照结果集区分子查询
 
 子查询主要有两种写法。
 
@@ -495,9 +495,9 @@ select * from demo where id in (select id from demo1);
 select * from (select * from demo1) as t;
 ```
 
-#### 1. 过滤条件子查询
+### 1. 过滤条件子查询
 
-##### 1. 非相关子查询
+#### 1. 非相关子查询
 
 非相关子查询，就是在子查询内部没有使用或者依赖外部的关联条件。
 
@@ -531,7 +531,7 @@ select * from demo where id in (select id from demo);
 select * from demo where (a,b) in (select a,b from demo);
 ```
 
-##### 2. 相关子查询
+#### 2. 相关子查询
 
 相关子查询，就是子查询内部使用或依赖外部查询的关联条件。
 
@@ -541,7 +541,7 @@ select * from demo where (a,b) in (select a,b from demo);
 select * from demo t1 where id in (select id from demo t2 where t2.id = t1.id);
 ```
 
-##### 3. 不相关子查询优化
+#### 3. 不相关子查询优化
 
 相关标量和行子查询的执行步骤：
 
@@ -598,7 +598,7 @@ explain select * from demo t1 join demo1 t2 on t1.id = t2.id;
 
 利用子查询中的索引（树），不返回重复记录的结果集。
 
-##### 4. 相关子查询优化
+#### 4. 相关子查询优化
 
 - 使用exists
 
@@ -612,7 +612,7 @@ select * from demo t1 where exists in (select 1 from demo t2 where t2.id = t1.id
 
 
 
-#### 2. 临时表子查询
+### 2. 临时表子查询
 
 ```sql
 select * from demo t1, (select * from demo1) as t2 where t1.id=t2.id;
@@ -645,7 +645,7 @@ select * from demo t1 join demo1 t2 on t1.id=t2.id where t1.a=1;
 
 但是如果派生表中包含有聚合函数，分组函数，union，limit的语句则不能直接优化。
 
-## 5. explain原理
+# 5. explain原理
 
 explain执行之后的结果集字段：
 
@@ -677,7 +677,7 @@ explain select * from demo1 t1 straight join demo2 t2 on t1.id=t2.id;
 
 
 
-## 6. 通用优化方式
+# 6. 通用优化方式
 
 - in语句中的值不宜超过200个，如果不超过200个会使用精确预估成本，如果超过200个会通过统计表中的平均唯一字段行数预估（总记录行数/列的唯一值个数=每个唯一值的平均对应行数），能用between就不要用in，因为between只是一个范围查询；
 - select的结果集尽量不要使用*，防止过多的成本，明确字段会增加使用覆盖索引（using index）的可能性，降低回表成本；
@@ -718,4 +718,276 @@ select * from demo1 where a = 1 and b = 1 and c =1;// 不走索引
 
 - 联合查询如果使用between，<，>等范围查询，会导致索引字段失效；
 - 优先使用内连接，少用外连接，连接时，使用小表驱动大表；
+
+# 7. 事务
+
+## 1. 事务特性
+
+事务具备ACID四大特性：
+
+- 隔离性（I）：连个事务不相互影响；
+- 持久性（D）：事务提交后，影响是持久的，不会消失。
+- 原子性（A）：不可分割，要么全部操作成功，要是全部操作失败；
+- 一致性（C）：事务影响的各个因素是保持一致的。
+
+## 2. 事务控制
+
+1. 自动提交
+
+事务是默认开启的，而且默认是每条执行语句一个事务，每条语句执行完毕自动提交。
+
+```sql
+show variables like 'autocommit';
+```
+
+![image-20191215093946531](mysql.assets/image-20191215093946531.png)
+
+2. 手动开启并提交
+
+如果需要手动开启事务，则需要命令来控制。
+
+```sql
+begin; // 或者start transaction;
+update xxx;
+insert into table xxx;
+commit;// 或者rollback;
+```
+
+3. 隐式提交
+
+如果手动开启事务之后，遇到DDL等语句就会自动提交事务。
+
+```sql
+begin; // 或者start transaction;
+update xxx;
+alter table | drop table | drop table | create table | create user | grant user | set password | lock table | check index | analyze table | load data | flush |  …… // 在此，会导致自动提交事务
+insert into table xxx;
+commit;// 或者rollback;
+```
+
+4. 保存点
+
+有时候在事务内部需要手工设置回滚的位置，这个位置就是保存点。
+
+```sql
+begin; // 或者start transaction;
+update xxx;
+savepoint update1;
+insert into table xxx;
+savepoint insert1;
+rollback to update1;
+release savepoint insert1;// 可以通过这条语句删除某个保存点
+commit;
+```
+
+## 3. 隔离性
+
+事务的隔离级别：
+
+- 未提交读（READ-UNCOMMITED）：事务内部还没有提交的变化，可以被其它事务或者会话读取到变化，会导致脏读；
+- 已提交读（READ-COMMITED）：事务提交后，其它事务才能读取到，会导致不可重复读（第一次读，和后面读的数据不是相同的数据）和幻读；
+- 可重复读（REPEATABLE-READ）：事务提交后，其它后面**开启**的事务才读读取到。也就是在一个事务内部，无论其它事务是否在修改数据，它读到的数据都是一样的，也就是可重复读。但是可能出现幻读（mysql在该级别不会出现幻读）。
+- 串行化（SERIALIZABLE）：对一条相同记录的读写是串行的，不会有多个事务的同时操作，会降低数据库的并发性。
+
+>脏读：读取到的数据是个没有提交的中间数据；
+>
+>不可重复读：在一个事务内部，没有读取同一条记录的数据值是不一样的，这是因为其它事务也有可能修改该条记录并提交，在其它事务提交之后，这个事务再次获取该记录的数据，会导致每次获取到的数据值不一致。
+>
+>幻读：在一个事务内部，每次查询的数据量是不一样的，这是因为其它事务也有可能插入或者删除提交数据，在其它事务提交之后，这个事务再次获取数据，会导致没有获取到的数据量不一致。
+
+mysql-5.7默认的事务隔离级别为REPEATABLE-READ。
+
+## 4. 版本链
+
+使用innodb存储引擎的表，在它的聚集索引记录中包含两个隐藏列：
+
+- tx_id：每次针对该条记录变动时，会将对应的事务id写入该列；
+- roll_pointer：每次针对该条记录变动时，会将该条记录修改前的记录指针写入该列。
+
+![image-20191215105207890](mysql.assets/image-20191215105207890.png)
+
+## 5. readView
+
+1. 未提交读
+
+每次读取版本链中最新的数据记录即可。
+
+2. 提交读
+
+每次select都会记录未提交事务的*m_ids[]（tx_id）数组（不包含自己的事务id），将版本链中最新的已提交的记录读取出来（判断不在m_ids中的记录）。这样子m_ids就是动态变化的，每次可以获取到最新的提交记录数据（如果当前事务修改过，那当然读取到自己的记录版本）。
+
+3. 可重复读
+
+只在第一次select的时候会记录未提交事务的*m_ids[]（tx_id）数组（不包含自己的事务id），将版本链中最新的已提交的记录读取出来（判断不在m_ids中的记录）。下次select时，不会刷新m_ids，所以每次获取的数据时一致的。
+
+以上就是MVVC（Multi-Version Concurrency Controller，多版本并发控制）机制，提交读在每次读的时候都会生成一个ReadView，可重复读只有在第一次读的时候生成ReadView，之后的读就是重复这个ReadView。MVVC提高了并发性，避免加锁。
+
+# 8. 锁
+
+## 1.读锁与写锁
+
+- 读锁：共享锁，shared loacks，s锁，加入读锁后，还可以加入写锁；
+
+- 写锁：排它锁，exclusive locks，x锁，加入写锁后，不能加入读锁。
+
+|      | 读   | 写   |
+| ---- | ---- | ---- |
+| 读锁 |      | 冲突 |
+| 写锁 | 冲突 | 冲突 |
+
+### 1. 读操作
+
+innodb中，普通select是不加锁的。如果加入需要手动加锁。
+
+```sql
+select * from demo lock in share mode; // 加入读锁（事务完毕后自动解锁），会阻塞其它事务的写操作。
+select * from demo for update; // 加入写锁（事务完毕后自动解锁），会阻塞其它事务的读写操作。
+```
+
+### 2. 写操作
+
+- delete：删除一条数据时，先加入写锁，再删除之；
+- insert：插入一条数据时，会加**隐式锁**（因为不存在数据，所以不可能显式的在数据上加锁，再别的delete和update时才加锁），在提交之前不被其它事务访问；
+- update：
+  - 如果被更新的列，修改前后没有存储空间的变化，那么会对该记录加写锁，再修改；
+  - 如果被更新的列，修改前后有存储空间的变化，那么会对该记录加写锁，删除记录后，在insert。
+
+## 2. 行锁与表锁
+
+根据锁的范围可以划分为行锁和表锁。
+
+查看锁情况的sql。
+
+```sql
+select * from information_schema.innodb_trx;// 记录当前运行的事务
+select * from information_schema.innodb_locks;// 记录当前出现的锁
+select * from information_schema.innodb_lock_waits;// 记录锁等待的记录关系
+```
+
+### 1. 行锁
+
+- lock_rec_not_gap：单行锁；
+- lock_gap：间隙锁，锁定一个范围，但不包含记录本身。目的是，是为了防止同一事务的两次当前读，出现幻读的情况；
+- lock_ordinary：锁定一个范围，并包含锁本身。对于行查询，都是采用该方式，主要目的是结果幻读的问题。
+
+#### 1. 间隙锁
+
+1. 提交读
+
+- 主键索引
+
+在加锁的过程中，如果走的是主键，会之间将聚集索引树的记录加锁；
+
+- 普通索引
+
+如果是非聚集索引，被把非聚集索引树上的记录加锁，再回表到聚集索引树上二次加锁；
+
+- 无索引
+
+如果不走索引，则会将所有记录加锁，然后根据条件释放部分没有匹配到的记录。
+
+2. 可重复读
+
+对于可重复读的隔离级别，走主键索引和普通索引和提交读是一样的。
+
+- 无索引
+
+在锁住某些记录行之后，会使用到间隙锁，锁定范围内部和两端，这样子会解决**幻读**的问题。
+
+```sql
+//session1
+begin;
+select * from demo where a between (3, 5) for update;
+3
+4
+5
+
+//session2
+begin;
+insert into demo values(2);// 阻塞
+insert into demo values(3.1);// 阻塞
+insert into demo values(5.1);// 阻塞
+```
+
+如果是select * from demo，没有任何过滤条件，会锁所有记录和间隙，相当于锁表，不能插入任务记录。
+
+
+
+### 2. 表锁
+
+对表执行select，insert，update和delete时，innodb不会加表级别的读写锁。但是，对表执行drop，alter这些ddl语句时，其它的dml语句会阻塞，反之dml也会阻塞ddl。这个过程是使用表的元数据锁（metadata locks，简称MDL）,并没有使用表级别的读写锁。
+
+#### 1. 表级别的锁
+
+```sql
+lock tables demo1 read;// 对表加表级别读锁
+lock tables demo1 write;// 对表加表级别写锁
+```
+
+>不建议上面的表级别加锁，因为innodb的优点就是行锁，性能更高。
+>
+>如果行数据有写锁，则加入表级别的读锁会阻塞。
+
+#### 2. IX,IS锁
+
+IX：意向排它锁，如果行中有写锁，则会在表上加写意向锁，如果给表加读锁会wait；
+
+IS：意向共享锁，如果行中有读锁，则会在表上加读意向锁。
+
+通过意向锁可以判断表是否可以加上读写锁。
+
+#### 3. Auto-Inc锁
+
+
+
+- 对于表中存在自增字段，在插入记录时，会给表上加上自增锁，然后给自增列分配自增值，其它事务的insert会阻塞，这样就可以保证自增序列的连续性；
+- 或者使用轻量级锁，在插入数据时，获取自增序列取值的时候，尝试获取该锁，获取到锁之后就可以获取到自增序列的值，然后是否锁，不能等待插入成功。可能导入插入失败，导致序列不连续，或者插入顺序乱序。
+
+系统变量innodb_autoinc_block_mode:
+
+- 0：采用auto-inc锁；
+- 2：采用轻量级锁；
+- 1：这是默认配置。如果插入的记录数不确定条数时，采用auto-inc；当插入记录数确定时，用轻量级锁。
+
+```sql
+show global variables like 'innodb_autoinc_lock_mode';
+```
+
+![image-20191215132730244](mysql.assets/image-20191215132730244.png)
+
+### 4. 悲观锁
+
+使用的数据库的行锁，认为数据库会发生并发冲突，直接预先将数据锁住，其它事务阻塞，知道提交完毕后释放。
+
+### 5. 乐观锁
+
+在不会锁定数据的情况下更新数据，如果发现冲突，不进行更新（回滚）。一般通过version字段来实现。
+
+### 6. 死锁
+
+#### 1. 机制
+
+如果事务1锁住记录1，事务2锁住记录2，事务1删除记录2（阻塞），事务2删除记录1（阻塞）。
+
+#### 2. 死锁检测
+
+- innodb_deadlock_detect：控制打开死锁检测，默认打开；
+- innodb_lock_wait_timeout：等待锁的超时时间，默认50s；
+- innodb_print_all_deadlocks：将所有死锁的日志写入到mysql错误日志中，默认关闭。
+
+检测到死锁之后，innodb会在导致死锁的事务中选择一个权重较小的事务回滚 ，这个权重值可能由该事务影响（增删改）的记录行决定。
+
+```sql
+show engine innodb status;// 查看死锁日志。
+```
+
+
+
+#### 3. 避免死锁
+
+- 以固定顺序访问表和数据行；
+- 大事务拆分为小事务；
+- 事务内部，一次锁定需要的资源；
+- 降低事务隔离级别；
+- 给表添加合理的索引（避免全表扫描并加锁，防止间隙锁）；
 
