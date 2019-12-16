@@ -410,7 +410,7 @@ JNI global references: 314
 
 # 4. GC算法和收集器
 
-默认jvm堆内存为系统内存的1/64,（如果系统8G内存，则jvm堆内存为125M，其中old区84M，young区41M（其中eden区32M，S0和S1各5M），新生代和老年代的比例为1:2，eden和S0，S1比例为6:1）。
+默认jvm堆最大内存为物理1/4，初始内存为系统内存的1/64,（如果系统8G内存，则jvm堆内存为125M，其中old区84M，young区41M（其中eden区32M，S0和S1各5M），新生代和老年代的比例为1:2，eden和S0，S1比例为6:1）。
 
 new出来的对象一般分配在eden区，如果是大对象（eden区比old小，放不下）则会分配到old区。
 
@@ -436,11 +436,121 @@ new出来的对象一般分配在eden区，如果是大对象（eden区比old小
 
 ### 1. 标记清除算法
 
+先将可回收对象进行标记，然后再同意清除。缺点是存在内存碎片，且标记和清除的效率都不高。
+
+![image-20191216103554699](jvm.assets/image-20191216103554699.png)
+
 ### 2. 复制算法
+
+把内存分为两个大小一样的块，每次只使用一块。当一块内存使用完时，将这一块内存中存活中的对象复制到另外一块，再把这块内存整体清理。这样子就能回收一般的内存。比较适合survivor区的S0和S1中的内存回收，和小对象的回收。缺点是每次只使用一般的内存，不适合大对象的收集。
+
+![image-20191216104104438](jvm.assets/image-20191216104104438.png)
 
 ### 3. 标记整理算法
 
+将标记为可回收的对象，移动在一块连续的内存里，再清理其它内存。比较适合老年代的垃圾回收。
+
+![image-20191216104309611](jvm.assets/image-20191216104309611.png)
+
 ### 4. 分代收集算法
+
+现代的商用虚拟器都使用该算法。这种算法根据对象存活周期的不同，划分不同的内存区域，一般分为新生代和老年代，可以根据每个年代的特点选择不同的垃圾回收算法。
+
+在新生代，每次都是大量的对象死去，所以可以选择复制算法，只需要付出少量的对象复制成本就可以完成垃圾回收。而老年代对象存活的概率比较大，而且缺少额外的空间，可以选择标记清除算法和标记整理算法。
+
+## 3. 垃圾收集器
+
+![image-20191216115324356](jvm.assets/image-20191216115324356.png)
+
+### 1. Serial收集器
+
+串行收集器是最古老的收集器。新生代使用复制算法，老年代使用标记整理算法。该收集器是个简单高效的**单线程**收集器，但是会导致其它线程阻塞（Stop The World，停止其它线程，专门进行垃圾回收）。
+
+### 2. ParNew收集器
+
+其实就是串行收集器的**多线程**版本。缺点也是会导致STW。
+
+### 3. ParallelScavenge收集器
+
+该收集器是默认的收集器。类似于ParNew。该收集器关注的是高吞吐量（高效利用CPU）。所谓吞度量就是CPU用于运行用户代码的时间于CPU总消耗时间的比值，即多时间内运行用户业务量越大越好。但是也会导致短暂的STW。
+
+### 4. SerialOld收集器
+
+是serial收集器的老年代版本，也是单线程，使用标记整理算法。
+
+### 5. ParallelOld收集器
+
+是ParallelScavenge收集器的老年代版本，所以使用标记整理算法。
+
+### 6. CMS收集器
+
+CMS（Concurrency Mark Sweep）收集器是一款并发收集器。使用的标记清除算法。
+
+- 并发（concurrency）：多个线程交替执行，交替使用CPU时间片；
+- 并行（parallellism）：多个任务在同一时刻，同时执行，只在多CPU场景存在。
+
+主要优点：并发收集，低停顿（重新标记阶段）。但是也有几个缺点：对CPU资源敏感，无法处理并发清除阶段产生的浮动垃圾，会产生内存碎片（因为采用的是标记清除算法）。
+
+### 7. G1收集器
+
+G1（Garbage-First）是一款面向服务器的垃圾收集器，针对多处理器，大内存，以极高的性能满足GC停顿要求的同时，具备高吞吐量的性能特征。会减少FGC（极少）。
+
+### 8. 选择收集器
+
+1. 优先调整堆的大小，让服务器自己选择垃圾回收器；
+2. 如果内存小于100M，使用Serial收集器；
+3. 如果是单核CPU，对停顿事件没有强制要求，选择Serial或者让jvm自己选择；
+4. 如果要求停顿事件不超过1s，选择Parallel或者让jvm自己选择；
+5. 如果响应时间要求很过，选择Parallel收集器。
+6. jvm9及以上版本官方G1;
+7. jvm不同版本默认垃圾回收器：
+
+- jvm7+jvm8：Parallel Scavenge（新生代）（复制算法）+Parallel Old（老年代）（标记整理算法）；
+
+-XX:+UseParallelGC
+
+```shell
+java -XX:+PrintCommandLineFlags -version
+-XX:InitialHeapSize=131752192 -XX:MaxHeapSize=2108035072 -XX:+PrintCommandLineFlags -XX:+UseCompressedClassPointers -XX:+UseCompressedOops -XX:-UseLargePagesIndividualAllocation -XX:+UseParallelGC
+java version "1.8.0_191"
+Java(TM) SE Runtime Environment (build 1.8.0_191-b12)
+Java HotSpot(TM) 64-Bit Server VM (build 25.191-b12, mixed mode)
+
+```
+
+- jvm9+：G1；
+
+# 5. GC性能调优
+
+## 1. 性能指标
+
+性能调优有两个主要的指标：
+
+- 停顿时间：垃圾回收器在垃圾回收时中断业务执行的时间。通过参数-XX:MaxGCPauseMillis=n毫秒。
+- 吞吐量：非垃圾回收器的CPU时间和jvm总时间，即垃圾回收时间占用JVM运行时间。通过参数-XX:GCTimeRadio=n吞吐量。
+
+## 2. 调优步骤
+
+1. 打印GC日志
+
+```shell
+-XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -Xloggc:./gc.log
+```
+
+2. 分析日志指标
+3. 分析GC原因，调整jvm参数
+
+- 减少FGC次数：查看FGC原因，如元空间不足引起的FGC，则提高元空间；
+- 增加YGC次数：如增大年轻代动态扩容增量（默认20%），可以提高到20%；
+- 减少STW停顿时间：
+
+
+
+## 3. 常用工具
+
+GCeasy，GCViewer
+
+
 
 
 
