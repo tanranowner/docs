@@ -1300,3 +1300,7 @@ public class AppConfig implements WebMvcConfigurer {
 
 
 
+# 7. 热部署
+
+引用devtools监听文件变动，来实现修改后的文件重新classloader
+
