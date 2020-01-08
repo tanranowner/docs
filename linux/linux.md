@@ -130,3 +130,27 @@ delay：网络传输过程钟延迟的时间；
 offset：时间补偿的结果；
 
 jitter：Linux系统时间与BIOS硬件时间的差异时间。
+
+## 3. 防火墙
+
+### 1. 查看状态
+
+查看防火墙状态命令：systemctl status firewalld
+
+![image-20200108100157086](E:\Repositories\docs\linux\linux.assets\image-20200108100157086.png)
+
+其中Active: active (running)就是运行并开启状态。
+
+### 2. 关闭防火墙
+
+关闭防火墙状态：systemctl stop firewalld.service
+
+![image-20200108100400134](E:\Repositories\docs\linux\linux.assets\image-20200108100400134.png)
+
+其中Active: inactive (dead)就是关闭状态。
+
+永久关闭防火墙：systemctl disable firewalld.service
+
+![image-20200108100658103](E:\Repositories\docs\linux\linux.assets\image-20200108100658103.png)
+
+其中disable表示防火墙已经悠久关闭。
