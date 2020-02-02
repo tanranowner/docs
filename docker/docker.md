@@ -105,6 +105,34 @@ Server: Docker Engine - Community
 [root@bogon yum.repos.d]#
 ```
 
+## 5. 国内镜像加速
+
+### 1. 登录
+
+阿里云容器镜像服务。
+
+https://cr.console.aliyun.com/cn-beijing/instances/repositories
+
+### 2. 镜像加速器
+
+- 复制个人的加速器的地址
+- 通过修改daemon配置文件/etc/docker/daemon.json来使用加速器
+
+```shell
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": ["https://87nt28s8.mirror.aliyuncs.com"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+
+
+
+
 # 3. 常见命令
 
 ## 1. Docker registry
@@ -210,6 +238,8 @@ options：
 -i：使用交互模式，始终保证输入流开放；
 
 -t：分配一个伪终端，一般两个参数配合使用-it，即可在容器中利用打开的伪终端进行交互操作；
+
+-d：后台运行容器，并返回容器ID；
 
 --name：为容器指定一个名称；
 
@@ -525,7 +555,7 @@ docker attach <container>
 docker exec <container> [arg]
 
 ```shell
-[root@bogon ~]# docker exec -it 8d /bin/bash
+[root@bogon ~]# docker exec -it 8d65b8922b4e /bin/bash
 root@8d65b8922b4e:/# ls
 bin   dev                         entrypoint.sh  home  lib64  mnt  proc  run   srv  tmp  var
 boot  docker-entrypoint-initdb.d  etc            lib   media  opt  root  sbin  sys  usr
@@ -641,5 +671,37 @@ RUN mkdir -p /opt/logs
 CMD java -jar /opt/eureka-0.0.1-SNAPSHOT.jar > /opt/logs/eureka.log
 
 docker build -t eureka:0.0.1 .
+```
+
+# 5. 常用镜像
+
+## 1. redis
+
+```shell
+# 拉取镜像
+[root@zhaoyl ~]# docker pull redis
+# 启动镜像（以持久化方式启动，并映射本地磁盘路径）
+[root@zhaoyl ~]# docker run -v /var/lib/docker/volumes/redis:/data -d -p 6379:6379 --name redis redis  redis-server --appendonly yes
+```
+
+## 2. elasticsearch
+
+```shell
+# 拉取镜像
+[root@zhaoyl ~]# docker pull elasticsearch
+# 创建挂载目录
+[root@zhaoyl ~]# mkdir -p /var/lib/docker/volumes/elasticsearch/logs
+[root@zhaoyl ~]# mkdir -p /var/lib/docker/volumes/elasticsearch/data
+# 启动镜像
+[root@zhaoyl ~]# docker run -v /var/lib/docker/volumes/elasticsearch/data:/usr/share/elasticsearch/data -v /var/lib/docker/volumes/elasticsearch/logs:/usr/share/elasticsearch/logs -d --name elasticsearch -p 9200:9200 -p 9300:9300 -e "discovery.type=single-node" -e ES_JAVA_OPTS="-Xms512m -Xmx512m" elasticsearch
+```
+
+## 3. kibana
+
+```shell
+# 拉取镜像
+[root@zhaoyl ~]# docker pull kibana
+# 启动镜像
+[root@zhaoyl ~]# docker run -d -e ELASTICSEARCH_URL=http://172.17.233.46:9200 --name kibana -p 5601:5601 kibana
 ```
 
