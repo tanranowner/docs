@@ -705,3 +705,40 @@ docker build -t eureka:0.0.1 .
 [root@zhaoyl ~]# docker run -d -e ELASTICSEARCH_URL=http://172.17.233.46:9200 --name kibana -p 5601:5601 kibana
 ```
 
+## 4. mysql
+
+```shell
+# 拉取镜像
+[root@zhaoyl ~]# docker pull mysql
+# 第一次启动镜像
+[root@zhaoyl mysql]# docker run -d -e MYSQL_ROOT_PASSWORD=123456 -p 3306:3306 --name mysql mysql
+# 查看临时挂载目录
+[root@zhaoyl mysql]# docker inspect mysql
+"Mounts": [
+            {
+                "Type": "volume",
+                "Name": "4887042df4c07147b8a3e7318454d7591ea26675b0e09da85c03fbe4f3b17076",
+                "Source": "/var/lib/docker/volumes/4887042df4c07147b8a3e7318454d7591ea26675b0e09da85c03fbe4f3b17076/_data",
+                "Destination": "/var/lib/mysql",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ]
+        
+# 停止容器
+[root@zhaoyl mysql]# docker stop mysql
+# 复制目录
+[root@zhaoyl mysql]# mkdir -p /var/lib/docker/volumes/mysql
+[root@zhaoyl mysql]# cp -r /var/lib/docker/volumes/4887042df4c07147b8a3e7318454d7591ea26675b0e09da85c03fbe4f3b17076/_data/* /var/lib/docker/volumes/mysql/
+# 重启容器
+[root@zhaoyl mysql]# docker rm mysql
+[root@zhaoyl mysql]# docker run -v /var/lib/docker/volumes/mysql:/var/lib/mysql -d -e MYSQL_ROOT_PASSWORD=123456 -p 3306:3306 --name mysql mysql
+# 更新密码方式（8版本之后有所不同）
+[root@zhaoyl ~]# docker exec -it mysql /bin/bash
+root@8558e36b0051:/# mysql -uroot -p123456
+mysql> use mysql;
+mysql> ALTER USER 'root' IDENTIFIED WITH mysql_native_password BY '123456';
+```
+
