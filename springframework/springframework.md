@@ -117,7 +117,7 @@ ApplicationContext也是一种BeanFactory。
 
 其中最重要的实现类为AnnotationConfigApplicationContext。
 
-![image-20201121182832765](springframework.assets/image-20201121182832765-1606047513108.png)
+![image-20201121182832765](springframework.assets/image-20201121182832765.png)
 
 从上图可以看到，AnnotationConfigApplicationContext在ApplicationContext基础上继承和实现了一些接口及类。
 
