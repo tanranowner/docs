@@ -61,7 +61,7 @@ scanner可以在指定目录进行扫描@Component和@ManagedBean组件。
 
 BeanFactory是spring的核心类，其中最重要的实现类为DefaultListableBeanFactory。
 
-![image-20201121113456794](E:\Repositories\docs\springframework\springframework.assets\image-20201121113456794.png)
+![image-20201121113456794](springframework.assets\image-20201121113456794.png)
 
 从上图可以看出，它实现和继承了众多的接口和父类。所以它具备多种能力。
 
@@ -99,7 +99,7 @@ BeanFactory是spring的核心类，其中最重要的实现类为DefaultListable
 
 ApplicationContext也是一种BeanFactory。
 
-![image-20201121114831788](E:\Repositories\docs\springframework\springframework.assets\image-20201121114831788.png)
+![image-20201121114831788](springframework.assets\image-20201121114831788.png)
 
 从上图可以看出，它除过实现了了BeanFactory（基础容器能力），还实现了其它接口（增强了基础业务能力和易用性）。
 
@@ -117,7 +117,7 @@ ApplicationContext也是一种BeanFactory。
 
 其中最重要的实现类为AnnotationConfigApplicationContext。
 
-![image-20201121182832765](E:\Repositories\docs\springframework\springframework.assets\image-20201121182832765.png)
+![image-20201121182832765](springframework.assets/image-20201121182832765-1606047513108.png)
 
 从上图可以看到，AnnotationConfigApplicationContext在ApplicationContext基础上继承和实现了一些接口及类。
 
