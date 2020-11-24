@@ -183,6 +183,109 @@ annotationConfigApplicationContext.publishEvent("触发一个事件");
 
 ### 类型转换
 
+#### PropertyEditor
+
+该类为JDK自带的类型转换器（属性编辑器）接口，可以将外部设置值（字面量）转换为内部JavaBean属性值。可见，PropertyEditor接口方法是内部属性值和外部设置值的沟通桥梁。PropertyEditorSupport为该接口的默认实现类。
+
+```java
+static class User {
+        private String name;
+        public User(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return super.toString() + this.name;
+        }
+    }
+    static class String2UserPropertyEditor extends PropertyEditorSupport {
+        @Override
+        public void setAsText(String text) throws IllegalArgumentException {
+            User user = new User(text);
+            this.setValue(user);
+        }
+    }
+    public static void main(String[] args) {
+        PropertyEditor userPropertyEditor = new String2UserPropertyEditor();
+        userPropertyEditor.setAsText("zhangsan");
+        System.out.println(userPropertyEditor.getValue());
+    }
+}
+```
+
+输出：org.zhaoyl.Demo$User@68de145zhangsan。
+
+也可以将该PropertyEditor注册到Spring容器中。
+
+```java
+@Bean
+public CustomEditorConfigurer customEditorConfigurer() {
+    CustomEditorConfigurer customEditorConfigurer = new CustomEditorConfigurer();
+    Map<Class<?>, Class<? extends PropertyEditor>> propertyEditorMap = new HashMap<>();
+    propertyEditorMap.put(User.class, String2UserPropertyEditor.class);
+    customEditorConfigurer.setCustomEditors(propertyEditorMap);
+    return customEditorConfigurer;
+}
+
+@Component
+public class UserService {
+	// 可以将该字面量转化为User类型，并完成属性赋值
+    @Value("zhangsan")
+    User user;
+
+    public void test() {
+        System.out.println(test);
+    }
+}
+```
+
+#### ConversionService
+
+该接口为Spring提供，功能更为强大。
+
+```java
+public class String2UserConverter implements ConditionalGenericConverter {
+    @Override
+    public boolean matches(TypeDescriptor sourceType, TypeDescriptor targetType) {
+        return sourceType.getType().equals(String.class) && targetType.getType().equals(User.class);
+    }
+    @Override
+    public Set<ConvertiblePair> getConvertibleTypes() {
+        return Collections.singleton(new ConvertiblePair(String.class, User.class));
+    }
+    @Override
+    public Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
+        User user = new User((String)source);
+        return user;
+    }
+}
+public static void main(String[] args) {
+    DefaultConversionService conversionService = new DefaultConversionService();
+    conversionService.addConverter(new String2UserConverter());
+    User value = conversionService.convert("lisi", User.class);
+    System.out.println(value);
+}
+```
+
+将ConversionService注册到Spring中。
+
+```java
+@Bean
+public ConversionServiceFactoryBean conversionService() {
+    ConversionServiceFactoryBean conversionServiceFactoryBean = new ConversionServiceFactoryBean();
+    conversionServiceFactoryBean.setConverters(Collections.singleton(new String2UserConverter()));
+
+    return conversionServiceFactoryBean;
+}
+```
+
+注册完，就可以和
+
+[PropertyEditor]: #PropertyEditor	"PropertyEditor"
+
+一样的属性注入。
+
 ### 后置处理器
 
 #### BeanFactoryPostProcessor
