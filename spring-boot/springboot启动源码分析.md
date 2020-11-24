@@ -4,9 +4,9 @@
 
 
 
-# 1. 启动源码分析
+# 启动源码分析
 
-## 1.1 入口方法
+## 入口方法
 ```java
 @SpringBootApplication
 public class Application {
@@ -16,7 +16,7 @@ public class Application {
     }
 }
 ```
-## 1.2 创建SpringApplication对象
+## 创建SpringApplication对象
 ```JAVA
 public static ConfigurableApplicationContext run(Class<?>[] primarySources, String[] args) {
         // 先创建SpringApplication对象，在调用run方法
@@ -39,7 +39,7 @@ public SpringApplication(ResourceLoader resourceLoader, Class<?>... primarySourc
 	this.mainApplicationClass = deduceMainApplicationClass();
 }
 ```
-## 1.3 调用run方法
+## 调用run方法
 ```JAVA
 public ConfigurableApplicationContext run(String... args) {
 	StopWatch stopWatch = new StopWatch();
@@ -101,15 +101,15 @@ public ConfigurableApplicationContext run(String... args) {
 ```
 
 
-## 1.4 事件监听
-### 1.4.1 事件类型
+## 事件监听
+### 事件类型
 - ApplicationContextInitializer(spring.factories)
 - ApplicationListener(spring.factories)
 - SpringApplicationRunListener(spring.factories)
 - ApplicationRunner(IOC)
 - CommandLineRunner(IOC)
 
-### 1.4.2 事件触发流程
+### 事件触发流程
 
 事件类型 | 开始run方法 | 准备环境参数后 | IOC注册组件后 | 加载beanDefinition后 | refresh后 |
 ---|---|---|---|---|---
@@ -121,9 +121,9 @@ CommandLineRunner |  |  |  |  | 3.run |
 
 
 
-# 2. 自动配置原理
+# 自动配置原理
 
-## 1. 自动配置原理
+## 自动配置原理
 
 springboot中开始自动配置使用注解**@SpringBootApplication**，该注解是个组合注解。
 
@@ -178,11 +178,11 @@ static class Registrar implements ImportBeanDefinitionRegistrar, DeterminableImp
 }
 ```
 
-## 2. 其它自动配置的方法
+## 其它自动配置的方法
 
 除过上面spring-boot中主流的开启自动配置的方法，也可以采用其它的方式。
 
-### 1. 自定义注解方式
+### 自定义注解方式
 
 可以自定义注解**@EnableFun**类似注解，配合导入ImportSelector实现类的方式，将自定义的配置类导入到spring-boot中。
 
@@ -266,7 +266,7 @@ public class Service {
 
 
 
-### 2. 条件配置方式
+### 条件配置方式
 
 通过配置spring.factories方式，会导致默认配置并注入该组件，这显然在有些场景下是不适合的。可以在通过判断配置属性值的方式，判断是否注入（enable为true才注入，否则不注入）。
 
@@ -285,7 +285,7 @@ funProperties:
 	enable: true
 ```
 
-## 3. 配置自动补全
+## 配置自动补全
 
 spring-boot官方提供的自动配置，可以在IDE中能够自动补全，这是因为这些组件的配置属性在META-INF下面的文件进行了配置说明。配置文件有additional-spring-configuration-metadata.json和spring-configuration-metadata.json。
 
@@ -298,9 +298,9 @@ spring-boot官方提供的自动配置，可以在IDE中能够自动补全，这
 </dependency>
 ```
 
-# 3. 事件原理
+# 事件原理
 
-## 1.  事件机制
+## 事件机制
 
 springboot中的事件使用的是springframework中的事件机制，事件机制中，包含无个基本元素。
 
@@ -317,7 +317,7 @@ springboot中的事件使用的是springframework中的事件机制，事件机�
 
 事件源发布事件后，事件广播器会根据事件监听器注册表的信息，将事件通知到各自的监听器，最终由监听器完成事件的处理。
 
-## 2. 事件的实现
+## 事件的实现
 
 定义事件
 
@@ -390,7 +390,7 @@ public class App {
 EmailEvent{sendTo='***@gmail.com', subject='hello', content='hello world'}
 ```
 
-## 3. 源码分析
+## 源码分析
 
 spring在refresh过程中，会初始化事件广播器，注册事件监听器。
 
@@ -518,9 +518,9 @@ protected void invokeListener(ApplicationListener<?> listener, ApplicationEvent 
 }
 ```
 
-# 4. 嵌入式Servlet容器
+# 嵌入式Servlet容器
 
-## 1. 调用时机
+## 调用时机
 
 在springboot程序启动过程中（run方法），会调用到refresh方法，该方法会调用onRefresh防范，在onRefresh中会实例化Servlet容器，并启动。
 
@@ -576,7 +576,7 @@ protected void finishRefresh() {
 }
 ```
 
-## 2. 自动装配容器
+## 自动装配容器
 
 springboot会根据jar依赖情况，自动装配Servlet容器。
 
@@ -718,9 +718,9 @@ public WebServer getWebServer(ServletContextInitializer... initializers) {
 }
 ```
 
-# 5. 注册组件
+# 注册组件
 
-## 1. Servlet注册
+## Servlet注册
 
 ```java
 // 将自定义的MyServlet注册到容器中
@@ -731,7 +731,7 @@ public ServletRegistrationBean myServlet()
 }
 ```
 
-## 2. Filter注册
+## Filter注册
 
 ```java
 // 将自定义的的MyFilter注册到容器
@@ -746,7 +746,7 @@ public FilterRegistrationBean myFilter()
 }
 ```
 
-## 3. Listener添加
+## Listener添加
 
 ```java
 // 自定义Listener
@@ -778,9 +778,9 @@ static {
 }
 ```
 
-# 6. Web开发
+# Web开发
 
-## 1. 自动配置
+## 自动配置
 
 在spring.factories配置中，springboot已经添加了servlet的自动配置。
 
@@ -869,7 +869,7 @@ dispatcherServlet.setDispatchOptionsRequest(this.webMvcProperties.isDispatchOpti
 }
 ```
 
-## 2. 静态资源
+## 静态资源
 
 springmvc的自动配置是在spring.factories中。
 
@@ -1119,9 +1119,9 @@ public class ResourceProperties {
 
   
 
-## 3. Thymeleaf模板
+## Thymeleaf模板
 
-### 1. 引入依赖
+### 引入依赖
 
 thymeleaf模板引擎是springboot推荐的，首先，需要加入pom依赖。
 
@@ -1139,7 +1139,7 @@ thymeleaf模板引擎是springboot推荐的，首先，需要加入pom依赖。
 </dependency>
 ```
 
-### 2. 自动配置
+### 自动配置
 
 ```properties
 # Auto Configure
@@ -1186,7 +1186,7 @@ public class ThymeleafProperties {
 
 由代码可以看出，thymeleaf模板的默认目录是在classpath:/templates/，后缀为.html。
 
-### 3. 编写页面
+### 编写页面
 
 现在可以编写第一个html页面了（默认已经开启thymeleaf引擎，并且模板路径在templates目录）。
 
@@ -1225,7 +1225,7 @@ public ModelAndView success(ModelMap modelMap)
 
 ![image-20191207213803353](springboot%E5%90%AF%E5%8A%A8%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90.assets/image-20191207213803353.png)
 
-### 4. 缓存
+### 缓存
 
 在开发调试阶段需要关闭缓存。
 
@@ -1257,7 +1257,7 @@ spring:
 
 禁用缓存之后，在修改静态资源之后，就可以用ctrl+F9重新编译实时生效。
 
-### 5. 登录拦截
+### 登录拦截
 
 在用户打开页面时，需要判断用户是否登录，如果已经登录则正常处理，否则重定向到登录页面。
 
@@ -1300,7 +1300,7 @@ public class AppConfig implements WebMvcConfigurer {
 
 
 
-# 7. 热部署
+# 热部署
 
 引用devtools监听文件变动，来实现修改后的文件重新classloader
 
