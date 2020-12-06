@@ -280,22 +280,94 @@ public ConversionServiceFactoryBean conversionService() {
 }
 ```
 
-注册完，就可以和
-
-[PropertyEditor]: #PropertyEditor	"PropertyEditor"
-
-一样的属性注入。
+注册完，就可以和PropertyEditor一样的属性注入。
 
 ### 后置处理器
 
 #### BeanFactoryPostProcessor
 
-Bean工厂的后置处理器
+Bean工厂的后置处理器，在Bean工厂加载Bean定义之后调用。
 
 #### BeanPostProcessor
 
-Bean的后置处理器
+Bean的后置处理器，在Bean初始化前后调用（postProcessBeforeInitialization和postProcessAfterInitialization）。
 
 #### FactoryBean
 
-工厂Bean
+工厂Bean，用于创建Bean实例，可以使用工厂Bean间接的向容器创建Bean，可以通过实现接口BeanFactoryAware来实现。
+
+# Bean的生命周期
+
+Bean的生命周期，就是SpringBean在容器中的从生到死经历的各个阶段。
+
+```mermaid
+graph TB
+启动ApplicationContext-->创建BeanFactory-->初始化BeanFactory-->扫描Bean
+subgraph 执行BeanFactoryPostProcessor
+扫描Bean-->生成BeanDefinition-->合并BeanFinition
+end
+合并BeanFinition-->加载BeanClass-->实例化前-->推断构造方法-->实例化-->执行BeanDefinition后置处理器-->填充属性-->setAware
+subgraph 执行Aware
+setAware(优先级高的初始化前setAware)
+end
+setAware-->初始化前(初始化前postProcessBeforeInitialization)-->初始化-->初始化后(初始化后postProcessAfterInitialization)
+
+```
+
+## SpringBean的生成过程
+
+### 生成BeanDefinition
+
+Spring在启动过程中会扫描类，并生成Class对应的BeanDefinition放置到容器中。一般是通过org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider#scanCandidateComponents来进行扫描。
+
+```java
+private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
+		Set<BeanDefinition> candidates = new LinkedHashSet<>();
+		try {
+			String packageSearchPath = ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX +
+					resolveBasePackage(basePackage) + '/' + this.resourcePattern;
+			Resource[] resources = getResourcePatternResolver().getResources(packageSearchPath);
+			boolean traceEnabled = logger.isTraceEnabled();
+			boolean debugEnabled = logger.isDebugEnabled();
+			for (Resource resource : resources) {
+				if (traceEnabled) {
+					logger.trace("Scanning " + resource);
+				}
+				if (resource.isReadable()) {
+					try {
+						MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
+						if (isCandidateComponent(metadataReader)) {
+							ScannedGenericBeanDefinition sbd = new ScannedGenericBeanDefinition(metadataReader);
+							sbd.setResource(resource);
+							sbd.setSource(resource);
+							if (isCandidateComponent(sbd)) {
+								candidates.add(sbd);
+							}
+						}
+					}
+					catch (Throwable ex) {
+						throw new BeanDefinitionStoreException(
+								"Failed to read candidate component class: " + resource, ex);
+					}
+				}
+			}
+		}
+		catch (IOException ex) {
+			throw new BeanDefinitionStoreException("I/O failure during classpath scanning", ex);
+		}
+		return candidates;
+	}
+```
+
+该方法是通过ConfigurationClassPostProcessor#postProcessBeanDefinitionRegistry（实现了接口BeanDefinitionRegistryPostProcessor，该接口继承了接口BeanFactoryPostProcessor）。
+
+```java
+Resource[] resources = getResourcePatternResolver().getResources(packageSearchPath);
+```
+
+resource可以通过MetadataReader生成对应Class的ScannedGenericBeanDefinition对象。
+
+### 合并BeanDefinition
+
+
+
