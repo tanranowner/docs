@@ -318,7 +318,29 @@ setAware-->初始化前(初始化前postProcessBeforeInitialization)-->初始化
 
 ### 生成BeanDefinition
 
-Spring在启动过程中会扫描类，并生成Class对应的BeanDefinition放置到容器中。一般是通过org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider#scanCandidateComponents来进行扫描。
+Spring在启动过程中会扫描类，并生成Class对应的BeanDefinition放置到容器中。扫描是在容器刷新是触发。调用栈如下：
+
+```java
+scanCandidateComponents:417, ClassPathScanningCandidateComponentProvider (org.springframework.context.annotation)
+// 扫描ScannedGenericBeanDefinition
+findCandidateComponents:316, ClassPathScanningCandidateComponentProvider (org.springframework.context.annotation)
+doScan:275, ClassPathBeanDefinitionScanner (org.springframework.context.annotation)
+parse:132, ComponentScanAnnotationParser (org.springframework.context.annotation)
+// 开始扫描
+processConfigurationClass:246, ConfigurationClassParser (org.springframework.context.annotation)
+parse:203, ConfigurationClassParser (org.springframework.context.annotation)
+parse:171, ConfigurationClassParser (org.springframework.context.annotation)
+// 通过全配置类开始扫描路径（@ComponentScan中的basePackages）
+processConfigBeanDefinitions:315, ConfigurationClassPostProcessor (org.springframework.context.annotation) // ConfigurationClassPostProcessor注册方法
+postProcessBeanDefinitionRegistry:232, ConfigurationClassPostProcessor (org.springframework.context.annotation) // ConfigurationClassPostProcessor注册BD
+invokeBeanDefinitionRegistryPostProcessors:275, PostProcessorRegistrationDelegate (org.springframework.context.support) // 调用BeanFactory的后置处理器之一（BD注册处理器）
+invokeBeanFactoryPostProcessors:95, PostProcessorRegistrationDelegate (org.springframework.context.support) // 调用BeanFactory的后置处理器
+invokeBeanFactoryPostProcessors:693, AbstractApplicationContext (org.springframework.context.support) // 调用BeanFactory的后置处理器
+refresh:530, AbstractApplicationContext (org.springframework.context.support)
+main:10, Application (org.zyl) // 调用refresh
+```
+
+扫描路径是@ComponentScan中的basePackages。
 
 ```java
 private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
@@ -359,15 +381,164 @@ private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
 	}
 ```
 
-该方法是通过ConfigurationClassPostProcessor#postProcessBeanDefinitionRegistry（实现了接口BeanDefinitionRegistryPostProcessor，该接口继承了接口BeanFactoryPostProcessor）。
+该方法是通过ConfigurationClassPostProcessor#postProcessBeanDefinitionRegistry，实现了接口BeanDefinitionRegistryPostProcessor，该实现继承接口BeanFactoryPostProcessor，且实现接口PriorityOrdered。因为BeanDefinitionRegistryPostProcessor执行顺序先于BeanFactoryPostProcessor，且PriorityOrdered又高于Order和其它。所有ConfigurationClassPostProcessor优先级非常高。
 
 ```java
 Resource[] resources = getResourcePatternResolver().getResources(packageSearchPath);
 ```
 
-resource可以通过MetadataReader生成对应Class的ScannedGenericBeanDefinition对象。
+resource可以通过MetadataReader生成对应Class的ScannedGenericBeanDefinition对象。此时的BeanDefinition对应的beanClass属性只是类的全限名（字符串）。
+
+>扫描顺序是@Component（扫描路径是配置类的@ComponentScan中的basePackages），@Import（扫描路径是配置类的@Import的class），@ImportResource（根据配置的bean.xml文件），@Bean（配置类中的Bean及其父接口中的@Bean方法）。
 
 ### 合并BeanDefinition
+
+由于在BeanDefinition时，可以定义（xml和代码修改BeanDefinition）继承关系，所以需要合并BeanDefinition。子BeanDefinition会继承父BeanDefinition的一些数据（包含属性值），最终形成RootBeanDefinition（doGetBean时）。
+
+```java
+public void overrideFrom(BeanDefinition other) {
+		if (StringUtils.hasLength(other.getBeanClassName())) {
+			setBeanClassName(other.getBeanClassName());
+		}
+		if (StringUtils.hasLength(other.getScope())) {
+			setScope(other.getScope());
+		}
+		setAbstract(other.isAbstract());
+		setLazyInit(other.isLazyInit());
+		if (StringUtils.hasLength(other.getFactoryBeanName())) {
+			setFactoryBeanName(other.getFactoryBeanName());
+		}
+		if (StringUtils.hasLength(other.getFactoryMethodName())) {
+			setFactoryMethodName(other.getFactoryMethodName());
+		}
+		setRole(other.getRole());
+		setSource(other.getSource());
+		copyAttributesFrom(other);
+
+		if (other instanceof AbstractBeanDefinition) {
+			AbstractBeanDefinition otherAbd = (AbstractBeanDefinition) other;
+			if (otherAbd.hasBeanClass()) {
+				setBeanClass(otherAbd.getBeanClass());
+			}
+			if (otherAbd.hasConstructorArgumentValues()) {
+				getConstructorArgumentValues().addArgumentValues(other.getConstructorArgumentValues());
+			}
+			if (otherAbd.hasPropertyValues()) {
+				getPropertyValues().addPropertyValues(other.getPropertyValues());
+			}
+			if (otherAbd.hasMethodOverrides()) {
+				getMethodOverrides().addOverrides(otherAbd.getMethodOverrides());
+			}
+			setAutowireMode(otherAbd.getAutowireMode());
+			setDependencyCheck(otherAbd.getDependencyCheck());
+			setDependsOn(otherAbd.getDependsOn());
+			setAutowireCandidate(otherAbd.isAutowireCandidate());
+			setPrimary(otherAbd.isPrimary());
+			copyQualifiersFrom(otherAbd);
+			setInstanceSupplier(otherAbd.getInstanceSupplier());
+			setNonPublicAccessAllowed(otherAbd.isNonPublicAccessAllowed());
+			setLenientConstructorResolution(otherAbd.isLenientConstructorResolution());
+			if (otherAbd.getInitMethodName() != null) {
+				setInitMethodName(otherAbd.getInitMethodName());
+				setEnforceInitMethod(otherAbd.isEnforceInitMethod());
+			}
+			if (otherAbd.getDestroyMethodName() != null) {
+				setDestroyMethodName(otherAbd.getDestroyMethodName());
+				setEnforceDestroyMethod(otherAbd.isEnforceDestroyMethod());
+			}
+			setSynthetic(otherAbd.isSynthetic());
+			setResource(otherAbd.getResource());
+		}
+		else {
+			getConstructorArgumentValues().addArgumentValues(other.getConstructorArgumentValues());
+			getPropertyValues().addPropertyValues(other.getPropertyValues());
+			setResourceDescription(other.getResourceDescription());
+		}
+	}
+```
+
+### 加载类
+
+在形成的BeanDefinition（RootBeanDefinition）后，就可以加载类了。调用栈如下：
+
+```java
+doResolveBeanClass:1403, AbstractBeanFactory (org.springframework.beans.factory.support) // 加载类
+resolveBeanClass:1384, AbstractBeanFactory (org.springframework.beans.factory.support)
+determineTargetType:680, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+predictBeanType:647, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+isFactoryBean:1518, AbstractBeanFactory (org.springframework.beans.factory.support)
+doGetBeanNamesForType:511, DefaultListableBeanFactory (org.springframework.beans.factory.support) // 在所有合并过的BD中获取真实的BD的class（如factoryBean对应真实的class）
+getBeanNamesForType:481, DefaultListableBeanFactory (org.springframework.beans.factory.support)
+invokeBeanFactoryPostProcessors:99, PostProcessorRegistrationDelegate (org.springframework.context.support) // 在第一次扫描完BD后，再次获取最新增加的BeanDefinitionRegistryPostProcessor（如Import引入）
+invokeBeanFactoryPostProcessors:693, AbstractApplicationContext (org.springframework.context.support)
+refresh:530, AbstractApplicationContext (org.springframework.context.support)
+main:10, Application (org.zyl)
+```
+
+通过类加载器，加载类的方法。
+
+```java
+@Nullable
+private Class<?> doResolveBeanClass(RootBeanDefinition mbd, Class<?>... typesToMatch)
+    throws ClassNotFoundException {
+
+    ClassLoader beanClassLoader = getBeanClassLoader();
+    ClassLoader dynamicLoader = beanClassLoader;
+    boolean freshResolve = false;
+
+    if (!ObjectUtils.isEmpty(typesToMatch)) {
+        // When just doing type checks (i.e. not creating an actual instance yet),
+        // use the specified temporary class loader (e.g. in a weaving scenario).
+        ClassLoader tempClassLoader = getTempClassLoader();
+        if (tempClassLoader != null) {
+            dynamicLoader = tempClassLoader;
+            freshResolve = true;
+            if (tempClassLoader instanceof DecoratingClassLoader) {
+                DecoratingClassLoader dcl = (DecoratingClassLoader) tempClassLoader;
+                for (Class<?> typeToMatch : typesToMatch) {
+                    dcl.excludeClass(typeToMatch.getName());
+                }
+            }
+        }
+    }
+
+    String className = mbd.getBeanClassName();
+    if (className != null) {
+        Object evaluated = evaluateBeanDefinitionString(className, mbd);
+        if (!className.equals(evaluated)) {
+            // A dynamically resolved expression, supported as of 4.2...
+            if (evaluated instanceof Class) {
+                return (Class<?>) evaluated;
+            }
+            else if (evaluated instanceof String) {
+                className = (String) evaluated;
+                freshResolve = true;
+            }
+            else {
+                throw new IllegalStateException("Invalid class name expression result: " + evaluated);
+            }
+        }
+        if (freshResolve) {
+            // When resolving against a temporary class loader, exit early in order
+            // to avoid storing the resolved Class in the bean definition.
+            if (dynamicLoader != null) {
+                try {
+                    return dynamicLoader.loadClass(className);
+                }
+                catch (ClassNotFoundException ex) {
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("Could not load class [" + className + "] from " + dynamicLoader + ": " + ex);
+                    }
+                }
+            }
+            return ClassUtils.forName(className, dynamicLoader);
+        }
+    }
+
+    // Resolve regularly, caching the result in the BeanDefinition...
+    return mbd.resolveBeanClass(beanClassLoader);
+}
+```
 
 
 
