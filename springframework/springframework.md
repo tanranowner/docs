@@ -393,7 +393,18 @@ resource可以通过MetadataReader生成对应Class的ScannedGenericBeanDefiniti
 
 ### 合并BeanDefinition
 
-由于在BeanDefinition时，可以定义（xml和代码修改BeanDefinition）继承关系，所以需要合并BeanDefinition。子BeanDefinition会继承父BeanDefinition的一些数据（包含属性值），最终形成RootBeanDefinition（doGetBean时）。
+调用栈如下：
+
+```java
+doGetBeanNamesForType:505, DefaultListableBeanFactory (org.springframework.beans.factory.support) // 合并BD
+getBeanNamesForType:481, DefaultListableBeanFactory (org.springframework.beans.factory.support)
+invokeBeanFactoryPostProcessors:99, PostProcessorRegistrationDelegate (org.springframework.context.support) // 在第一次扫描完BD后，再次获取最新增加的BeanDefinitionRegistryPostProcessor（如Import引入）
+invokeBeanFactoryPostProcessors:693, AbstractApplicationContext (org.springframework.context.support)
+refresh:530, AbstractApplicationContext (org.springframework.context.support)
+main:10, Application (org.zyl)
+```
+
+由于在BeanDefinition时，可以定义（xml和代码修改BeanDefinition）继承关系，所以需要合并BeanDefinition。子BeanDefinition会继承父BeanDefinition的一些数据（包含属性值）。
 
 ```java
 public void overrideFrom(BeanDefinition other) {
