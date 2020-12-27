@@ -306,15 +306,21 @@ graph TB
 subgraph 执行BeanFactoryPostProcessor
 扫描Bean-->生成BeanDefinition-->合并BeanFinition
 end
-合并BeanFinition-->加载BeanClass-->实例化前-->推断构造方法-->实例化-->执行BeanDefinition后置处理器-->填充属性-->setAware
+合并BeanFinition-->加载BeanClass-->实例化前-->推断构造方法
+subgraph 实例化过程
+推断构造方法-->实例化-->执行BeanDefinition后置处理器-->实例化后
+end
+实例化后-->填充属性前-->填充属性-->setAware
 subgraph 执行Aware
 setAware(优先级高的初始化前setAware)
 end
-setAware-->初始化前(初始化前postProcessBeforeInitialization)-->初始化-->初始化后(初始化后postProcessAfterInitialization)
-
+setAware-->初始化前(初始化前postProcessBeforeInitialization)
+subgraph 初始化流程
+初始化前(初始化前postProcessBeforeInitialization)-->初始化-->初始化后(初始化后postProcessAfterInitialization)
+end
 ```
 
-## SpringBean的生成过程
+## Bean的生成过程
 
 ### 生成BeanDefinition
 
@@ -408,64 +414,64 @@ main:10, Application (org.zyl)
 
 ```java
 public void overrideFrom(BeanDefinition other) {
-		if (StringUtils.hasLength(other.getBeanClassName())) {
-			setBeanClassName(other.getBeanClassName());
-		}
-		if (StringUtils.hasLength(other.getScope())) {
-			setScope(other.getScope());
-		}
-		setAbstract(other.isAbstract());
-		setLazyInit(other.isLazyInit());
-		if (StringUtils.hasLength(other.getFactoryBeanName())) {
-			setFactoryBeanName(other.getFactoryBeanName());
-		}
-		if (StringUtils.hasLength(other.getFactoryMethodName())) {
-			setFactoryMethodName(other.getFactoryMethodName());
-		}
-		setRole(other.getRole());
-		setSource(other.getSource());
-		copyAttributesFrom(other);
+    if (StringUtils.hasLength(other.getBeanClassName())) {
+        setBeanClassName(other.getBeanClassName());
+    }
+    if (StringUtils.hasLength(other.getScope())) {
+        setScope(other.getScope());
+    }
+    setAbstract(other.isAbstract());
+    setLazyInit(other.isLazyInit());
+    if (StringUtils.hasLength(other.getFactoryBeanName())) {
+        setFactoryBeanName(other.getFactoryBeanName());
+    }
+    if (StringUtils.hasLength(other.getFactoryMethodName())) {
+        setFactoryMethodName(other.getFactoryMethodName());
+    }
+    setRole(other.getRole());
+    setSource(other.getSource());
+    copyAttributesFrom(other);
 
-		if (other instanceof AbstractBeanDefinition) {
-			AbstractBeanDefinition otherAbd = (AbstractBeanDefinition) other;
-			if (otherAbd.hasBeanClass()) {
-				setBeanClass(otherAbd.getBeanClass());
-			}
-			if (otherAbd.hasConstructorArgumentValues()) {
-				getConstructorArgumentValues().addArgumentValues(other.getConstructorArgumentValues());
-			}
-			if (otherAbd.hasPropertyValues()) {
-				getPropertyValues().addPropertyValues(other.getPropertyValues());
-			}
-			if (otherAbd.hasMethodOverrides()) {
-				getMethodOverrides().addOverrides(otherAbd.getMethodOverrides());
-			}
-			setAutowireMode(otherAbd.getAutowireMode());
-			setDependencyCheck(otherAbd.getDependencyCheck());
-			setDependsOn(otherAbd.getDependsOn());
-			setAutowireCandidate(otherAbd.isAutowireCandidate());
-			setPrimary(otherAbd.isPrimary());
-			copyQualifiersFrom(otherAbd);
-			setInstanceSupplier(otherAbd.getInstanceSupplier());
-			setNonPublicAccessAllowed(otherAbd.isNonPublicAccessAllowed());
-			setLenientConstructorResolution(otherAbd.isLenientConstructorResolution());
-			if (otherAbd.getInitMethodName() != null) {
-				setInitMethodName(otherAbd.getInitMethodName());
-				setEnforceInitMethod(otherAbd.isEnforceInitMethod());
-			}
-			if (otherAbd.getDestroyMethodName() != null) {
-				setDestroyMethodName(otherAbd.getDestroyMethodName());
-				setEnforceDestroyMethod(otherAbd.isEnforceDestroyMethod());
-			}
-			setSynthetic(otherAbd.isSynthetic());
-			setResource(otherAbd.getResource());
-		}
-		else {
-			getConstructorArgumentValues().addArgumentValues(other.getConstructorArgumentValues());
-			getPropertyValues().addPropertyValues(other.getPropertyValues());
-			setResourceDescription(other.getResourceDescription());
-		}
-	}
+    if (other instanceof AbstractBeanDefinition) {
+        AbstractBeanDefinition otherAbd = (AbstractBeanDefinition) other;
+        if (otherAbd.hasBeanClass()) {
+            setBeanClass(otherAbd.getBeanClass());
+        }
+        if (otherAbd.hasConstructorArgumentValues()) {
+            getConstructorArgumentValues().addArgumentValues(other.getConstructorArgumentValues());
+        }
+        if (otherAbd.hasPropertyValues()) {
+            getPropertyValues().addPropertyValues(other.getPropertyValues());
+        }
+        if (otherAbd.hasMethodOverrides()) {
+            getMethodOverrides().addOverrides(otherAbd.getMethodOverrides());
+        }
+        setAutowireMode(otherAbd.getAutowireMode());
+        setDependencyCheck(otherAbd.getDependencyCheck());
+        setDependsOn(otherAbd.getDependsOn());
+        setAutowireCandidate(otherAbd.isAutowireCandidate());
+        setPrimary(otherAbd.isPrimary());
+        copyQualifiersFrom(otherAbd);
+        setInstanceSupplier(otherAbd.getInstanceSupplier());
+        setNonPublicAccessAllowed(otherAbd.isNonPublicAccessAllowed());
+        setLenientConstructorResolution(otherAbd.isLenientConstructorResolution());
+        if (otherAbd.getInitMethodName() != null) {
+            setInitMethodName(otherAbd.getInitMethodName());
+            setEnforceInitMethod(otherAbd.isEnforceInitMethod());
+        }
+        if (otherAbd.getDestroyMethodName() != null) {
+            setDestroyMethodName(otherAbd.getDestroyMethodName());
+            setEnforceDestroyMethod(otherAbd.isEnforceDestroyMethod());
+        }
+        setSynthetic(otherAbd.isSynthetic());
+        setResource(otherAbd.getResource());
+    }
+    else {
+        getConstructorArgumentValues().addArgumentValues(other.getConstructorArgumentValues());
+        getPropertyValues().addPropertyValues(other.getPropertyValues());
+        setResourceDescription(other.getResourceDescription());
+    }
+}
 ```
 
 ### 加载类
@@ -551,5 +557,277 @@ private Class<?> doResolveBeanClass(RootBeanDefinition mbd, Class<?>... typesToM
 }
 ```
 
+### 实例化前
 
+实例化前，是在对象被构造前执行调用的。org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessor#postProcessBeforeInstantiation是该接口方法，实现该方法即可。
+
+```java
+/**
+ * @param beanClass 目标对象的targetType
+ * @param beanName 目标对象的beanName
+ * @return 如果返回值非null，则表明在实例化前就执行了实例化，就不会调用后面的实例化过程，直接执行实例化后方法，然后中止生命周期。
+ */
+default Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
+    return null;
+}
+```
+
+该方法会在createBean时被调用。
+
+>该方法返回非null的对象后，bean生命周期结束，执行实例化后，后续的初始化等操作都不会执行了。
+
+### 推断构造函数
+
+dui
+
+### 实例化
+
+实例化
+
+### 执行BeanDefinition后置处理器
+
+在实例化后，会执行BeanDefinition后置处理器org.springframework.beans.factory.support.MergedBeanDefinitionPostProcessor#postProcessMergedBeanDefinition。调用堆栈如下：
+
+```java
+applyMergedBeanDefinitionPostProcessors:1075, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+// 执行BeanDefinition后置处理器
+doCreateBean:567, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+// 实例化Bean
+createBean:515, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+lambda$doGetBean$0:320, AbstractBeanFactory (org.springframework.beans.factory.support)
+getObject:-1, 1489092624 (org.springframework.beans.factory.support.AbstractBeanFactory$$Lambda$12)
+getSingleton:222, DefaultSingletonBeanRegistry (org.springframework.beans.factory.support)
+doGetBean:318, AbstractBeanFactory (org.springframework.beans.factory.support)
+getBean:199, AbstractBeanFactory (org.springframework.beans.factory.support)
+preInstantiateSingletons:845, DefaultListableBeanFactory (org.springframework.beans.factory.support)
+finishBeanFactoryInitialization:865, AbstractApplicationContext (org.springframework.context.support)
+refresh:548, AbstractApplicationContext (org.springframework.context.support)
+main:10, Application (org.zyl)
+```
+
+由于实例化已经完毕，所以该后置处理器影响不到初始化，只能影响到实例化。如可以修改PropertyValue。
+
+```java
+@Component
+public class CustomerizedMergedBeanDefinitionPostProcessor implements MergedBeanDefinitionPostProcessor {
+
+    @Override
+    public void postProcessMergedBeanDefinition(RootBeanDefinition beanDefinition, Class<?> beanType, String beanName) {
+        if (beanName.equals("orderService")) {
+            beanDefinition.setBeanClass(OrderService.class); // useless
+            beanDefinition.getPropertyValues().add("name","zhangsan");
+        }
+    }
+}
+```
+
+### 实例化后
+
+实例化后，是在对象被构造后执行调用的。org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessor#postProcessAfterInstantiation是该接口方法，实现该方法即可。
+
+```java
+/**
+ * @return false：则表示针对该bean不进行属性填充，true：表示进行后续的属性填充
+ */
+default boolean postProcessAfterInstantiation(Object bean, String beanName) throws BeansException {
+	return true;
+}
+```
+
+调用栈如下：
+
+```java
+populateBean:1369, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support) // 填充属性前，首先调用实例化后后置处理器
+doCreateBean:592, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+createBean:515, AbstractAutowireCapableBeanFactory (org.springframework.beans.factory.support)
+lambda$doGetBean$0:320, AbstractBeanFactory (org.springframework.beans.factory.support)
+getObject:-1, 1489092624 (org.springframework.beans.factory.support.AbstractBeanFactory$$Lambda$12)
+getSingleton:222, DefaultSingletonBeanRegistry (org.springframework.beans.factory.support)
+doGetBean:318, AbstractBeanFactory (org.springframework.beans.factory.support)
+getBean:199, AbstractBeanFactory (org.springframework.beans.factory.support)
+preInstantiateSingletons:845, DefaultListableBeanFactory (org.springframework.beans.factory.support)
+finishBeanFactoryInitialization:865, AbstractApplicationContext (org.springframework.context.support)
+refresh:548, AbstractApplicationContext (org.springframework.context.support)
+main:10, Application (org.zyl)
+```
+
+### 填充属性前
+
+该阶段是手动注入属性及函数，调用InstantiationAwareBeanPostProcessor#postProcessProperties
+
+```java
+/**
+ * 主要手工注入属性和方法（@Autowired，@Value，@Inject，@Resource）
+ * @return 非null则不再调用postProcessPropertyValues；null
+ */
+default PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName) throws BeansException {
+    return null;
+}
+```
+
+这个接口主要有两个实现类，AutowiredAnnotationBeanPostProcessor和CommonAnnotationBeanPostProcessor。
+
+其中AutowiredAnnotationBeanPostProcessor#postProcessProperties如下。
+
+```java
+public PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName) {
+    // 查找该bean中@Autowired，@Value，@Inject注解的字段和方法（非static）
+    InjectionMetadata metadata = findAutowiringMetadata(beanName, bean.getClass(), pvs);
+    try {
+        // 注入字段值（不调用属性的set方法），调用自动装配的函数（装配的注入值来自容器）
+        metadata.inject(bean, beanName, pvs);
+    }
+    catch (BeanCreationException ex) {
+        throw ex;
+    }
+    catch (Throwable ex) {
+        throw new BeanCreationException(beanName, "Injection of autowired dependencies failed", ex);
+    }
+    return pvs;
+}
+```
+
+其中CommonAnnotationBeanPostProcessor#postProcessProperties如下。
+
+```java
+@Override
+	public PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName) {
+    // 查找该bean中的@Resource注解的字段和方法（非static）
+    InjectionMetadata metadata = findResourceMetadata(beanName, bean.getClass(), pvs);
+    try {
+        // 注入字段值（不调用属性的set方法），调用自动装配的函数（装配的注入值来自容器）
+        metadata.inject(bean, beanName, pvs);
+    }
+    catch (Throwable ex) {
+        throw new BeanCreationException(beanName, "Injection of resource dependencies failed", ex);
+    }
+    return pvs;
+}
+```
+
+### 填充属性
+
+该阶段主要是自动注入，如容器xml中<benas>配置default-autowire:byType或者byName。属性注入底层调用属性的set方法。 
+
+### 执行aware
+
+执行一些早期的aware。BeanNameAware，BeanClassLoaderAware，BeanFactoryAware。
+
+### 初始化前
+
+调用org.springframework.beans.factory.config.BeanPostProcessor#postProcessBeforeInitialization方法。可以修改bean，也可以替换bean。
+
+### 初始化
+
+先调用org.springframework.beans.factory.InitializingBean#afterPropertiesSet方法，在调用bean的initMethod（注解，xml或者BeanDefinition方式）
+
+```java
+@Bean(initMethod = "init",destroyMethod = "destory")	
+```
+
+### 初始化后
+
+调用org.springframework.beans.factory.config.BeanPostProcessor#postProcessAfterInitialization。
+
+## Bean的销毁过程
+
+阿斯顿发送到
+
+## 主要过程
+
+### 依赖注入
+
+依赖注入主要在实例化（构造函数参数注入），属性填充等阶段。方式分类：
+
+#### 手工注入
+
+1. set方式注入
+
+可以通过在xml定义bean时，采用手工赋值的方式制定注入属性（实际调用的是该属性的set方法）
+
+```xml
+<bean name="userService" class="UserService">
+    <property name="orderService" ref="orderService"/>
+</bean>
+```
+
+```java
+class UserService {
+    private OrderService orderService;
+    public void setOrderService(OrderService orderService) {
+        this.orderService = orderService;
+    }
+    public UserService(OrderService orderService) {
+        this.orderService = orderService;
+    }
+}
+```
+
+2. 构造函数方式
+
+   也可以通过指定构造函数参数。
+
+```xml
+<bean name="userService" class="UserService">
+    <constructor-arg index="0" ref="orderService"/>
+</bean>
+```
+
+3. 注解注入
+   - [x] @Autowired
+   - [x] @Value
+   - [x] @Inject
+   - [x] @Resource
+
+#### 自动注入
+
+1. xml指定自动注入方式
+
+```xml
+<!-- 在这里不需要指定注入哪个属性或者构造函数，会自动按照类型注入 -->
+<bean id="userService" class="UserService" autowire="byType"/>
+```
+
+其中可配置的autowire类型为byType，byName，constructor，default（<beans>标签中设置default-autowire的具体类型，<bean>默认继承该配置），no（关闭自动注入）五种。指定之后，spring就可以在解析bean的类时，解析类方法，在解析UserService的属性或者方法参数，并且自动注入。
+
+> 目前自动注入只支持xml配置方式，不支持注解方式。
+
+#### 源码分析
+
+依赖注入时，注入值的获取是通过接口org.springframework.beans.factory.support.DefaultListableBeanFactory#resolveDependency。
+
+```java
+/**
+ * 依赖查找
+ *
+ * @param descriptor 依赖的描述
+ * @param requestingBeanName 被注入的beanName
+ * @param autowiredBeanNames 需要注入的bean
+ * @param typeConverter 类型转化器
+ */
+@Override
+@Nullable
+public Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName, @Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
+
+    descriptor.initParameterNameDiscovery(getParameterNameDiscoverer());
+    if (Optional.class == descriptor.getDependencyType()) {
+        return createOptionalDependency(descriptor, requestingBeanName);
+    }
+    else if (ObjectFactory.class == descriptor.getDependencyType() ||
+             ObjectProvider.class == descriptor.getDependencyType()) {
+        return new DependencyObjectProvider(descriptor, requestingBeanName);
+    }
+    else if (javaxInjectProviderClass == descriptor.getDependencyType()) {
+        return new Jsr330Factory().createDependencyProvider(descriptor, requestingBeanName);
+    }
+    else {
+        Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
+            descriptor, requestingBeanName);
+        if (result == null) {
+            result = doResolveDependency(descriptor, requestingBeanName, autowiredBeanNames, typeConverter);
+        }
+        return result;
+    }
+}
+```
 
