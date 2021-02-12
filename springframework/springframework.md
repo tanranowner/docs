@@ -743,7 +743,7 @@ public PropertyValues postProcessProperties(PropertyValues pvs, Object bean, Str
 
 1. set方式注入
 
-可以通过在xml定义bean时，采用手工赋值的方式制定注入属性（实际调用的是该属性的set方法）
+可以通过在xml定义bean时，采用手工赋值的方式制定注入属性（实际调用的是该属性的set方法，查到该类的set方法，根据入参类型（byType）或者入参名称（byName））
 
 ```xml
 <bean name="userService" class="UserService">
