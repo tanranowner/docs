@@ -42,9 +42,9 @@ kubectl get nodes -o wide
 
 ```shell
 # 先删除服务
-minikube delete service hello-minikube
+kubectl delete service my-nginx
 # 再删除deployment
-minikube delete deployment hello-minikube
+kubectl delete deployment my-nginx
 # 最后删除minikube集群
 minikube stop && minikube delete
 ```
@@ -75,7 +75,7 @@ minikube stop && minikube delete
 
 #### 配置方式
 
-通过yaml。
+通过yaml（资源清单）。
 
 ```shell
 kubectl create deployment my-nginx --image=nginx --dry-run -o yaml > deployment-my-nginx.yaml
