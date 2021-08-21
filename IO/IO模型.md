@@ -96,7 +96,7 @@ Connection: close
 
 握手和挥手数据：
 
-![image-20200330115229112](E:\Repositories\docs\IO\IO模型.assets\image-20200330115229112.png)
+![image-20200330115229112](IO模型.assets/image-20200330115229112.png)
 
 ```txt
 SYN表示建立连接，

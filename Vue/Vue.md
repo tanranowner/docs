@@ -81,26 +81,44 @@ npm install -g webpack
 1. 创建项目目录
 
 ```powershell
-rd /s /q vue-demo1
-md vue-demo1
+rd /s /q vue-demo
 ```
 
 2. 创建项目
 
 ```powershell
-cd vue-demo1
-vue create vue-login
+vue create vue-demo
 ```
 
 
 
-![image-20210212211823171](Vue.assets/image-20210212211823171.png)
+![image-20210213202255340](Vue.assets/image-20210213202255340.png)
 
 # 运行项目
 
 ```powershell
-cd vue-login
-npm install # 第一次运行工程需要执行，目的是下载项目中用到的node_modules库
+cd vue-demo
 npm run serve
 ```
 
+成功。
+
+![image-20210213202706014](Vue.assets/image-20210213202706014.png)
+
+![image-20210213202814956](Vue.assets/image-20210213202814956.png)
+
+# 安装依赖
+
+1. element-ui
+
+   ```powershell
+   npm install element-ui --save
+   ```
+
+2. axios
+
+   ```powershell
+   npm install axios --save
+   ```
+
+   
