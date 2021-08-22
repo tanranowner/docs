@@ -21,7 +21,7 @@
 启动minikube。
 
 ```shell
-minikube start --image-mirror-country cn --iso-url=https://kubernetes.oss-cn-hangzhou.aliyuncs.com/minikube/iso/minikube-v1.22.0.iso --registry-mirror=https://registry.docker-cn.com --vm-driver="docker" --memory=6000 
+minikube start --image-mirror-country cn --iso-url=https://kubernetes.oss-cn-hangzhou.aliyuncs.com/minikube/iso/minikube-v1.22.0.iso --registry-mirror=https://registry.docker-cn.com --vm-driver="docker" --memory=8000 
 ```
 
 查看集群状态。
@@ -234,5 +234,75 @@ GET 192.168.49.2:32073
 
 ```shell
 kubectl exec -it my-nginx-6b74b79f57-kndkj -- bash
+```
+
+# FAQ
+
+## minikube启动失败
+
+1. 拉取镜像失败
+
+![image-20210822193207419](k8s.assets/image-20210822193207419.png)
+
+原因：被墙。
+
+方案：
+
+```shell
+# 从docker从下载镜像
+docker pull coredns/coredns
+# 复制镜像
+docker tag coredns/coredns:latest registry.cn-hangzhou.aliyuncs.com/google_containers/coredns:v1.8.0
+# 删除镜像
+docker rmi coredns/coredns:latest
+# 加载到minikube中
+minikube.exe load registry.cn-hangzhou.aliyuncs.com/google_containers/coredns:v1.8.0
+```
+
+## 测试系统
+
+安装sshd测试服务，可以进行网络测试。
+
+```shell
+docker pull panubo/sshd
+minikube load docker.io/panubo/sshd
+kubectl.exe create deployment my-sshd --image=docker.io/panubo/sshd:latest --dry-run -o yaml > deployment-my-sshd.yaml 
+```
+
+修改yaml，加入磁盘目录映射。
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: my-sshd
+  name: my-sshd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-sshd
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: my-sshd
+    spec:
+      containers:
+      - image: docker.io/panubo/sshd:latest
+        name: sshd
+        resources: {}
+        volumeMounts:
+        - mountPath: /etc/ssh/keys # 容器中ssh-key目录
+          name: keys-volume
+      volumes:
+      - name: keys-volume
+        hostPath:
+          path: /c/Users/ZYL/.ssh/id_rsa # 本地ssh-key文件路径
+          type: Directory
+status: {}
 ```
 
