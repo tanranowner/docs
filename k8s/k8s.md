@@ -130,15 +130,14 @@ kubectl get pods,svc -o wide
 
 - *Pod IP*
 
-  Pod的IP地址，即docker容器的IP地址，此为虚拟IP地址。
+  Pod的IP地址，即docker容器的IP地址，此为虚拟IP地址（二层）。
 
 ![image-20210821111250932](k8s.assets/image-20210821111250932.png)
 
-> 1. 同Service下的pod可以直接根据PodIP相互通信
+> 1. 同集群下的pod可以直接根据PodIP相互通信，但是建议使用service方式（pod IP不固定）
 >
-> 2. 不同Service下的pod在集群间pod通信要借助于 cluster ip
+> 2. pod和集群外通信，要借助于node ip
 >
-> 3. pod和集群外通信，要借助于node ip
 
 ### 端口
 
