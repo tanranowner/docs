@@ -215,7 +215,19 @@ GET 192.168.49.2:32073
 # 通信过程 192.168.49.2:32073(node) -> (10.111.207.63:clusterPort(service)暂无配置) -> 172.17.0.5:80(service任意一个pod) -> 容器内部
 ```
 
+## Ingress
 
+外部流量通过域名方式访问集群，可以通过ingress方式进行7层转发。
+
+## 服务发现
+
+### 环境变量
+
+在pod中启动后，会自动将与之对应的service信息注册到环境变量中。
+
+### DNS
+
+在集群内部，可以通过<serviceName>[<.namespace>]方式进行访问。如my-nginx.default或者my-nginx。
 
 ## 日志
 
